@@ -1,0 +1,18 @@
+{
+  "name": "lovelive-management",
+  "version": "1.0.0",
+  "description": "LoveLive! 综合管理系统",
+  "main": "src/server/server.js",
+  "scripts": {
+    "start": "node src/server/start.js",
+    "server": "node src/server/server.js",
+    "stop": "node src/server/stop.js",
+    "init-db": "node src/server/init-db.js",
+    "reinit": "node src/server/init-db.js && node src/server/start.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.5",
+    "cors": "^2.8.5"
+  }
+}
