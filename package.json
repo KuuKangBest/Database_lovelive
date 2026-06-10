@@ -8,7 +8,8 @@
     "server": "node src/server/server.js",
     "stop": "node src/server/stop.js",
     "init-db": "node src/server/init-db.js",
-    "reinit": "node src/server/init-db.js && node src/server/start.js"
+    "seed": "node src/server/seed-db.js",
+    "reinit": "node src/server/init-db.js && node src/server/seed-db.js && node src/server/start.js"
   },
   "dependencies": {
     "express": "^4.18.2",

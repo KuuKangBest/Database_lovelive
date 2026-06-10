@@ -4,234 +4,70 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LoveLive! 综合管理系统</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700&display=swap');
-
-  :root {
-    --pink: #ff6b9d;
-    --pink-light: #ffe0ec;
-    --orange: #ff8c42;
-    --blue: #5b9bd5;
-    --purple: #9b7fd4;
-    --green: #6bc48b;
-    --bg: #fff5f8;
-    --card-bg: rgba(255,255,255,0.92);
-    --text: #4a3048;
-    --shadow: 0 4px 20px rgba(255,107,157,0.15);
-  }
-
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    font-family: 'Noto Sans SC', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
-
-  /* 背景樱花装饰 */
-  body::before {
-    content: '';
-    position: fixed; top:0; left:0; width:100%; height:100%;
-    background:
-      radial-gradient(ellipse at 10% 20%, rgba(255,182,193,0.3) 0%, transparent 50%),
-      radial-gradient(ellipse at 90% 80%, rgba(255,192,203,0.25) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 50%, rgba(255,230,240,0.4) 0%, transparent 60%),
-      url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="%23ffb6c1" opacity="0.3"/><circle cx="80" cy="30" r="1.5" fill="%23ffc0cb" opacity="0.25"/><circle cx="40" cy="70" r="2.5" fill="%23ffb6c1" opacity="0.2"/><circle cx="70" cy="80" r="1.8" fill="%23ffc0cb" opacity="0.3"/><circle cx="90" cy="15" r="1.2" fill="%23ffd1dc" opacity="0.35"/></svg>');
-    background-size: 300px 300px;
-    pointer-events: none; z-index: 0;
-  }
-
-  /* 导航 */
-  .navbar {
-    position: sticky; top:0; z-index: 100;
-    background: linear-gradient(135deg, #ff6b9d, #ff8db5, #e878a8);
-    padding: 0 30px; height: 60px;
-    display: flex; align-items: center; justify-content: space-between;
-    box-shadow: 0 2px 15px rgba(255,107,157,0.3);
-  }
-  .navbar .logo {
-    font-size: 1.4em; font-weight: 700; color: #fff;
-    letter-spacing: 1px;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  }
-  .nav-links { display: flex; gap: 5px; }
-  .nav-links button {
-    background: rgba(255,255,255,0.2); color: #fff; border: none;
-    padding: 8px 20px; border-radius: 25px; cursor: pointer;
-    font-size: 0.95em; transition: all 0.3s;
-  }
-  .nav-links button:hover, .nav-links button.active {
-    background: #fff; color: var(--pink); font-weight: 700;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  }
-
-  /* 主内容 */
-  .main { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 25px; }
-  .page { display: none; }
-  .page.active { display: block; }
-
-  /* 卡片网格 */
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-  .card {
-    background: var(--card-bg); border-radius: 16px; padding: 20px;
-    box-shadow: var(--shadow);
-    border: 1px solid rgba(255,107,157,0.1);
-    transition: transform 0.3s, box-shadow 0.3s;
-    cursor: pointer;
-  }
-  .card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(255,107,157,0.25); }
-  .card h3 { color: var(--pink); margin-bottom: 8px; font-size: 1.2em; }
-  .card .tag {
-    display: inline-block; background: var(--pink-light); color: var(--pink);
-    padding: 3px 12px; border-radius: 12px; font-size: 0.8em; margin: 3px 4px 3px 0;
-  }
-  .card .tag.blue { background: #e0eeff; color: var(--blue); }
-  .card .tag.orange { background: #fff0e8; color: var(--orange); }
-  .card .tag.purple { background: #f0e8ff; color: var(--purple); }
-  .card .cv { font-size: 0.85em; color: #888; margin-top: 5px; }
-  .card .color-dot {
-    display: inline-block; width: 14px; height: 14px; border-radius: 50%;
-    margin-right: 5px; vertical-align: middle;
-  }
-
-  /* 筛选栏 */
-  .filter-bar {
-    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;
-    align-items: center;
-  }
-  .filter-bar select, .filter-bar input {
-    padding: 8px 16px; border-radius: 20px; border: 2px solid var(--pink-light);
-    background: #fff; font-size: 0.9em; outline: none;
-  }
-  .filter-bar select:focus, .filter-bar input:focus { border-color: var(--pink); }
-  .filter-bar input { width: 200px; }
-
-  /* 排练面板 */
-  .rehearsal-item {
-    background: var(--card-bg); border-radius: 12px; padding: 16px 20px;
-    margin-bottom: 12px; border-left: 5px solid var(--pink);
-    box-shadow: var(--shadow); display: flex; justify-content: space-between;
-    align-items: center; flex-wrap: wrap; gap: 12px;
-  }
-  .rehearsal-item .info { flex:1; min-width: 200px; }
-  .rehearsal-item .count {
-    font-size: 1.1em; font-weight: 700;
-    padding: 8px 16px; border-radius: 20px;
-  }
-  .count.available { background: #e8f5e9; color: #388e3c; }
-  .count.near-full { background: #fff8e1; color: #f57c00; }
-  .count.full { background: #fce4ec; color: #c62828; }
-  .count.unlimited { background: #f5f5f5; color: #666; }
-  .bar-wrap { width: 100px; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
-  .bar-inner { height: 100%; border-radius: 4px; transition: width 0.3s; }
-  .bar-inner.available { background: #66bb6a; }
-  .bar-inner.near-full { background: #ffa726; }
-  .bar-inner.full { background: #ef5350; }
-
-  /* 表单 */
-  .modal-overlay {
-    display: none; position: fixed; top:0; left:0; width:100%; height:100%;
-    background: rgba(0,0,0,0.4); z-index: 200; justify-content: center;
-    align-items: center;
-  }
-  .modal-overlay.show { display: flex; }
-  .modal {
-    background: #fff; border-radius: 16px; padding: 30px; width: 90%; max-width: 600px;
-    max-height: 80vh; overflow-y: auto;
-  }
-  .modal h2 { color: var(--pink); margin-bottom: 20px; }
-  .modal label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 0.9em; }
-  .modal input, .modal select, .modal textarea {
-    width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #eee;
-    font-size: 0.95em; font-family: inherit;
-  }
-  .modal textarea { resize: vertical; min-height: 60px; }
-  .btn {
-    padding: 10px 24px; border-radius: 25px; border: none; cursor: pointer;
-    font-size: 0.95em; font-weight: 600; transition: all 0.3s;
-  }
-  .btn-primary { background: var(--pink); color: #fff; }
-  .btn-primary:hover { background: #e85a8b; }
-  .btn-danger { background: #fff; color: #c62828; border: 2px solid #c62828; }
-  .btn-danger:hover { background: #fce4ec; }
-  .btn-sm { padding: 5px 16px; font-size: 0.8em; }
-
-  /* 统计卡片 */
-  .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 15px; margin-bottom: 25px; }
-  .stat-card {
-    background: var(--card-bg); border-radius: 12px; padding: 18px;
-    text-align: center; box-shadow: var(--shadow);
-  }
-  .stat-card .num { font-size: 2em; font-weight: 700; color: var(--pink); }
-  .stat-card .lbl { font-size: 0.9em; color: #999; margin-top: 4px; }
-
-  /* 详情面板 */
-  .detail-panel {
-    background: var(--card-bg); border-radius: 16px; padding: 30px;
-    box-shadow: var(--shadow); margin-bottom: 20px;
-  }
-  .detail-panel h2 { color: var(--pink); font-size: 1.6em; margin-bottom: 15px; }
-
-  @media (max-width: 768px) {
-    .navbar { padding: 0 15px; }
-    .nav-links button { padding: 6px 12px; font-size: 0.8em; }
-    .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-    .rehearsal-item { flex-direction: column; align-items: flex-start; }
-  }
-</style>
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<!-- 导航 -->
 <nav class="navbar">
   <span class="logo">&hearts; LoveLive! 综合管理</span>
   <div class="nav-links">
-    <button class="active" onclick="showPage('home')">首页</button>
-    <button onclick="showPage('projects')">企划</button>
-    <button onclick="showPage('groups')">动漫团</button>
-    <button onclick="showPage('characters')">角色</button>
-    <button onclick="showPage('rehearsal')">排练管理</button>
+    <button class="active" data-page="home" onclick="showPage('home')">首页</button>
+    <button data-page="projects" onclick="showPage('projects')">企划</button>
+    <button data-page="groups" onclick="showPage('groups')">动漫团</button>
+    <button data-page="characters" onclick="showPage('characters')">角色</button>
+    <button data-page="rehearsal" onclick="showPage('rehearsal')">排练管理</button>
   </div>
 </nav>
 
 <div class="main">
 
-  <!-- ===== 首页 ===== -->
+  <!-- 首页 -->
   <div id="home" class="page active">
     <div class="stat-cards">
-      <div class="stat-card"><div class="num" id="stat-projects">5</div><div class="lbl">企划</div></div>
-      <div class="stat-card"><div class="num" id="stat-groups">8</div><div class="lbl">动漫团</div></div>
-      <div class="stat-card"><div class="num" id="stat-chars">59</div><div class="lbl">角色</div></div>
-      <div class="stat-card"><div class="num" id="stat-seiyuu">61</div><div class="lbl">声优</div></div>
+      <div class="stat-card" onclick="showPage('projects')">
+        <div class="card-bg" style="background-image:url(images/honoka.svg)"></div>
+        <div class="num" id="stat-projects">-</div><div class="lbl">企划</div>
+      </div>
+      <div class="stat-card" onclick="showPage('groups')">
+        <div class="card-bg" style="background-image:url(images/chika.svg)"></div>
+        <div class="num" id="stat-groups">-</div><div class="lbl">动漫团</div>
+      </div>
+      <div class="stat-card" onclick="showPage('characters')">
+        <div class="card-bg" style="background-image:url(images/ayumu.svg)"></div>
+        <div class="num" id="stat-chars">-</div><div class="lbl">角色</div>
+      </div>
+      <div class="stat-card" onclick="showPage('rehearsal')">
+        <div class="card-bg" style="background-image:url(images/kanon.svg)"></div>
+        <div class="num" id="stat-seiyuu">-</div><div class="lbl">声优 · 排练</div>
+      </div>
     </div>
     <h2 style="color:var(--pink);margin-bottom:15px;">最近排练</h2>
     <div id="home-rehearsals"></div>
   </div>
 
-  <!-- ===== 企划页 ===== -->
+  <!-- 企划 -->
   <div id="projects" class="page">
+    <button class="back-home" onclick="showPage('home')">&#9664; 回到首页</button>
     <h2 style="color:var(--pink);margin-bottom:20px;">企划一览</h2>
     <div class="grid" id="project-grid"></div>
   </div>
 
-  <!-- ===== 动漫团页 ===== -->
+  <!-- 动漫团 -->
   <div id="groups" class="page">
+    <button class="back-home" onclick="showPage('home')">&#9664; 回到首页</button>
     <div class="filter-bar">
-      <select id="group-filter-project" >
-        <option value="">全部企划</option>
-      </select>
+      <select id="group-filter-project"><option value="">全部企划</option></select>
     </div>
     <div class="grid" id="group-grid"></div>
   </div>
 
-  <!-- ===== 角色页 ===== -->
+  <!-- 角色 -->
   <div id="characters" class="page">
+    <button class="back-home" onclick="showPage('home')">&#9664; 回到首页</button>
     <div class="filter-bar">
-      <input type="text" id="char-search" placeholder="搜索角色名..." >
-      <select id="char-filter-group" >
-        <option value="">全部动漫团</option>
-      </select>
-      <select id="char-filter-age" >
+      <input type="text" id="char-search" placeholder="搜索角色名...">
+      <select id="char-filter-group"><option value="">全部动漫团</option></select>
+      <select id="char-filter-age">
         <option value="">声优年龄不限</option>
         <option value="20-30">20-30 岁</option>
         <option value="30-40">30-40 岁</option>
@@ -241,12 +77,15 @@
     <div class="grid" id="char-grid"></div>
   </div>
 
-  <!-- ===== 排练管理页 ===== -->
+  <!-- 排练 -->
   <div id="rehearsal" class="page">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-      <h2 style="color:var(--pink);">排练安排</h2>
-      <div style="display:flex;gap:10px;">
-        <select id="reh-filter-status" >
+    <button class="back-home" onclick="showPage('home')">&#9664; 回到首页</button>
+    <div class="reh-header">
+      <h2>排练安排</h2>
+      <div class="reh-controls">
+        <input type="date" id="reh-date-from" title="开始日期">
+        <input type="date" id="reh-date-to" title="结束日期">
+        <select id="reh-filter-status">
           <option value="all">全部状态</option>
           <option value="available">有空位</option>
           <option value="near_full">将满</option>
@@ -273,8 +112,10 @@
       <label>地点</label><input type="text" id="f-loc" required placeholder="如：综合楼 201">
       <label>人数上限（0=不限）</label><input type="number" id="f-max" value="5" min="0">
       <label>内容简介</label><textarea id="f-desc" placeholder="如：排练 Snow halation"></textarea>
-      <label>参与舞见（每行一个：CN名,扮演角色ID）</label>
-      <textarea id="f-dancers" rows="3" placeholder="小明,1&#10;小红,3"></textarea>
+      <label>参与角色（Ctrl+点击多选）</label>
+      <select id="f-char" multiple style="height:120px;" onchange="updateMaxHint()"></select>
+      <label>舞见 CN（逗号分隔，按角色顺序）</label>
+      <input type="text" id="f-cns" placeholder="小明,小红,阿蓝">
       <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
         <button type="button" class="btn" onclick="closeModal('modal-rehearsal')">取消</button>
         <button type="submit" class="btn btn-primary">确认添加</button>
@@ -283,243 +124,13 @@
   </div>
 </div>
 
-<script>
-// ===== API 基础配置 =====
-const API = 'http://localhost:3000/api';
-let charColors = {}; // 角色ID -> 颜色映射（从API加载）
+<!-- 角色详情弹窗 -->
+<div class="modal-overlay" id="modal-char">
+  <div class="modal" style="max-width:700px;">
+    <div id="char-detail-content"></div>
+  </div>
+</div>
 
-// ===== 工具函数 =====
-function occupantStatus(cur, max) {
-  if (max === 0) return 'unlimited';
-  if (cur >= max) return 'full';
-  if (cur / max >= 0.8) return 'near_full';
-  return 'available';
-}
-function statusLabel(s) { return {available:'有空位', near_full:'将满', full:'已满', unlimited:'不限'}[s] || s; }
-
-// ===== 页面切换 =====
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
-  document.getElementById(name).classList.add('active');
-  event.target.classList.add('active');
-  if (name === 'projects') loadProjects();
-  if (name === 'groups') loadGroups();
-  if (name === 'characters') loadCharacters();
-  if (name === 'rehearsal') loadRehearsals();
-  if (name === 'home') loadHome();
-}
-
-// ===== 首页 =====
-async function loadHome() {
-  try {
-    const r = await fetch(`${API}/stats`); const stats = await r.json();
-    document.getElementById('stat-projects').textContent = stats.projectCount;
-    document.getElementById('stat-groups').textContent = stats.groupCount;
-    document.getElementById('stat-chars').textContent = stats.charCount;
-    document.getElementById('stat-seiyuu').textContent = stats.cvCount;
-    const rr = await fetch(`${API}/rehearsals`);
-    const rehearsals = await rr.json();
-    const el = document.getElementById('home-rehearsals');
-    const recent = rehearsals.slice(-4).reverse();
-    if (recent.length === 0) { el.innerHTML = '<p style="color:#999;">暂无排练记录</p>'; return; }
-    el.innerHTML = recent.map(r => {
-      const cur = r.current_participants; const st = r.occupancy_status;
-      return `<div class="rehearsal-item">
-        <div class="info"><strong>排练 #${r.rehearsal_id}</strong> — ${r.rehearsal_date} ${r.start_time}-${r.end_time} @${r.location}<br><small>${r.content_summary||''}</small></div>
-        <span class="count ${st}">${cur}/${r.max_participants===0?'∞':r.max_participants} ${statusLabel(st)}</span>
-      </div>`;
-    }).join('');
-  } catch(e) { console.error(e); }
-}
-
-// ===== 企划 =====
-async function loadProjects() {
-  try {
-    const r = await fetch(`${API}/projects`); const projects = await r.json();
-    const gr = await fetch(`${API}/groups`); const allGroups = await gr.json();
-    document.getElementById('project-grid').innerHTML = projects.map(p => {
-      const cnt = allGroups.filter(g => g.project_id === p.project_id).length;
-      return `<div class="card">
-        <h3>${p.name}</h3>
-        <p style="margin-top:8px;">${p.description||''}</p>
-        <span class="tag">${p.start_date||'?'} ~ ${p.end_date||'至今'}</span>
-        <span class="tag blue">${cnt} 个团体</span>
-      </div>`;
-    }).join('');
-  } catch(e) { console.error(e); }
-}
-
-// ===== 动漫团 =====
-async function loadGroups() {
-  try {
-    const pr = await fetch(`${API}/projects`); const projects = await pr.json();
-    const selP = document.getElementById('group-filter-project');
-    selP.innerHTML = '<option value="">全部企划</option>' + projects.map(p => `<option value="${p.project_id}">${p.name}</option>`).join('');
-
-    const gr = await fetch(`${API}/groups`); const groups = await gr.json();
-    const selC = document.getElementById('char-filter-group');
-    selC.innerHTML = '<option value="">全部动漫团</option>' + groups.map(g => `<option value="${g.group_id}">${g.name}</option>`).join('');
-
-    const pid = document.getElementById('group-filter-project').value;
-    let gs = pid ? groups.filter(g => g.project_id === parseInt(pid)) : groups;
-    document.getElementById('group-grid').innerHTML = gs.map(g =>
-      `<div class="card">
-        <h3>${g.name}</h3>
-        <small style="color:#999">${g.project_name||''}</small>
-        <p style="margin-top:6px;font-size:0.9em;">${(g.description||'').slice(0,80)}</p>
-        <span class="tag">成立 ${g.founding_date||'?'}</span>
-        ${g.disband_date ? `<span class="tag orange">解散 ${g.disband_date}</span>` : ''}
-      </div>`
-    ).join('');
-  } catch(e) { console.error(e); }
-}
-
-// ===== 角色 =====
-async function loadCharacters() {
-  try {
-    const gid = document.getElementById('char-filter-group').value;
-    const search = document.getElementById('char-search').value;
-    const ageRange = document.getElementById('char-filter-age').value;
-    let url = `${API}/characters?`;
-    if (gid) url += `group_id=${gid}&`;
-    if (search) url += `search=${encodeURIComponent(search)}&`;
-    if (ageRange) { const [min,max] = ageRange.split('-'); url += `cv_age_min=${min}&cv_age_max=${max}&`; }
-
-    const r = await fetch(url); const chars = await r.json();
-    document.getElementById('char-grid').innerHTML = chars.map(c => {
-      const age = c.birth_date ? Math.floor((new Date() - new Date(c.birth_date)) / 31557600000) : null;
-      return `<div class="card">
-        <h3>${c.name}</h3>
-        <span class="tag">${c.group_name||'?'}</span>
-        <span class="tag blue">${c.birthday||'?'} · ${c.blood_type||'?'}型 · ${c.height||'?'}cm</span>
-        <div class="cv">CV: ${c.cv_name||'?'}${age ? ' ('+age+'岁)' : ''}</div>
-      </div>`;
-    }).join('');
-  } catch(e) { console.error(e); }
-}
-
-// ===== 排练管理 =====
-async function loadRehearsals() {
-  try {
-    const statusFilter = document.getElementById('reh-filter-status').value;
-    let url = `${API}/rehearsals?`;
-    if (statusFilter !== 'all') url += `status=${statusFilter}&`;
-    const r = await fetch(url); const list = await r.json();
-
-    document.getElementById('rehearsal-list').innerHTML = list.map(r => {
-      const cur = r.current_participants; const max = r.max_participants;
-      const st = r.occupancy_status; const pct = max === 0 ? 0 : Math.round(cur/max*100);
-      return `<div class="rehearsal-item">
-        <div class="info">
-          <strong>排练 #${r.rehearsal_id}</strong> — 舞团ID: ${r.dance_group_id}<br>
-          ${r.rehearsal_date} ${r.start_time}-${r.end_time} @ ${r.location}<br>
-          <small style="color:#888;">${r.content_summary||''}</small>
-        </div>
-        <div style="display:flex;align-items:center;gap:15px;">
-          <div>
-            <div class="bar-wrap"><div class="bar-inner ${st}" style="width:${pct}%;"></div></div>
-            <span class="count ${st}" style="display:inline-block;margin-top:4px;font-size:0.85em;">${cur}/${max===0?'∞':max} ${statusLabel(st)}</span>
-          </div>
-          <button class="btn btn-danger btn-sm" onclick="deleteRehearsal(${r.rehearsal_id})">删除</button>
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) { console.error(e); }
-}
-
-function openAddRehearsal() {
-  document.getElementById('modal-rehearsal').classList.add('show');
-  document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
-}
-
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-
-async function addRehearsal(e) {
-  e.preventDefault();
-  const dgName = document.getElementById('f-dg').value;
-  const max = parseInt(document.getElementById('f-max').value) || 0;
-  try {
-    // 1. 创建或查找舞团
-    let dgId;
-    const dgRes = await fetch(`${API}/dance-groups`);
-    const dgs = await dgRes.json();
-    const found = dgs.find(d => d.name === dgName);
-    if (found) { dgId = found.dance_group_id; }
-    else {
-      const createRes = await fetch(`${API}/dance-groups`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name: dgName })
-      }); const created = await createRes.json(); dgId = created.dance_group_id;
-    }
-    // 2. 创建排练
-    const rehRes = await fetch(`${API}/rehearsals`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        dance_group_id: dgId,
-        rehearsal_date: document.getElementById('f-date').value,
-        start_time: document.getElementById('f-start').value,
-        end_time: document.getElementById('f-end').value,
-        location: document.getElementById('f-loc').value,
-        max_participants: max,
-        content_summary: document.getElementById('f-desc').value,
-      })
-    });
-    if (!rehRes.ok) { const err = await rehRes.json(); alert(err.error); return; }
-    const reh = await rehRes.json();
-    // 3. 添加参与舞见
-    const dancersText = document.getElementById('f-dancers').value.trim();
-    if (dancersText) {
-      const lines = dancersText.split('\n');
-      for (const line of lines) {
-        const [cn, charId] = line.split(',').map(s=>s.trim());
-        // 创建或查找舞见
-        let dancerId;
-        const dRes = await fetch(`${API}/dancers?dance_group_id=${dgId}`);
-        const dancers = await dRes.json();
-        const df = dancers.find(d => d.cn_name === cn);
-        if (df) { dancerId = df.dancer_id; }
-        else {
-          const createD = await fetch(`${API}/dancers`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ dance_group_id: dgId, cn_name: cn })
-          }); const cd = await createD.json(); dancerId = cd.dancer_id;
-        }
-        // 添加参与记录
-        const partRes = await fetch(`${API}/rehearsals/${reh.rehearsal_id}/participants`, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ dancer_id: dancerId, character_id: parseInt(charId) })
-        });
-        if (!partRes.ok) { const err = await partRes.json(); alert(`添加 ${cn} 失败: ${err.error}`); }
-      }
-    }
-    closeModal('modal-rehearsal');
-    document.getElementById('form-rehearsal').reset();
-    loadRehearsals();
-  } catch(e) { console.error(e); alert('操作失败: '+e.message); }
-}
-
-async function deleteRehearsal(id) {
-  if (!confirm('确定删除该排练记录？')) return;
-  try {
-    await fetch(`${API}/rehearsals/${id}`, { method:'DELETE' });
-    loadRehearsals();
-  } catch(e) { console.error(e); }
-}
-
-document.getElementById('modal-rehearsal').addEventListener('click', function(e) {
-  if (e.target === this) closeModal('modal-rehearsal');
-});
-
-// ===== 筛选事件绑定 =====
-document.getElementById('group-filter-project').addEventListener('change', loadGroups);
-document.getElementById('char-filter-group').addEventListener('change', loadCharacters);
-document.getElementById('char-search').addEventListener('input', loadCharacters);
-document.getElementById('char-filter-age').addEventListener('change', loadCharacters);
-document.getElementById('reh-filter-status').addEventListener('change', loadRehearsals);
-
-// ===== 初始化 =====
-loadHome();
-</script>
+<script src="js/app.js"></script>
 </body>
 </html>
