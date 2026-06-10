@@ -32,6 +32,7 @@
     pointer-events: none; z-index: 0;
   }
 
+
   /* 导航 */
   .navbar {
     position: sticky; top:0; z-index: 100;
@@ -73,6 +74,27 @@
   }
   .card h3, .card .tag, .card .cv, .card > * { position: relative; z-index: 1; }
   .card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(255,107,157,0.25); }
+
+  /* 滚动触发动画 — 初始隐藏，JS 添加 .visible 后播放 */
+  .anim-item {
+    opacity: 0;
+  }
+  .anim-item.visible {
+    animation: fadeUp 0.5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeLeft {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to   { opacity: 1; transform: scale(1); }
+  }
   .card h3 { color: var(--pink); margin-bottom: 8px; font-size: 1.2em; }
   .card .tag {
     display: inline-block; background: var(--pink-light); color: var(--pink);
@@ -82,12 +104,19 @@
   .card .tag.orange { background: #fff0e8; color: var(--orange); }
   .card .tag.purple { background: #f0e8ff; color: var(--purple); }
   .card .cv { font-size: 0.85em; color: #888; margin-top: 5px; }
-  .card .card-char-bg {
-    position: absolute; bottom: -10px; right: -15px; width: 90px; height: 120px;
+  .card .card-logo-bg {
+    position: absolute; bottom: 5px; right: 5px;
+    width: 120px; height: 120px;
     background-size: contain; background-repeat: no-repeat; background-position: bottom right;
-    opacity: 0.08; z-index: 0; pointer-events: none; transition: opacity 0.3s;
+    opacity: 0.16; z-index: 0; pointer-events: none; transition: opacity 0.3s;
   }
-  .card:hover .card-char-bg { opacity: 0.14; }
+  .card:hover .card-logo-bg { opacity: 0.28; }
+  .card .card-render-bg {
+    position: absolute; bottom: -5px; right: -8px; width: 130px; height: 170px;
+    background-size: cover; background-repeat: no-repeat; background-position: top center;
+    opacity: 0.60; z-index: 1; pointer-events: none; transition: opacity 0.3s;
+  }
+  .card:hover .card-render-bg { opacity: 0.72; }
 
   /* 筛选栏 */
   .filter-bar {
@@ -197,6 +226,47 @@
   .reh-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
   .reh-header h2 { color:var(--pink); }
   .reh-controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+  .group-mini-cards { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; }
+  .group-mini-card {
+    width:80px; height:80px; border-radius:12px; cursor:pointer;
+    background:#fff; border:2px solid #eee; position:relative; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.25s; text-align:center;
+    box-shadow:0 2px 8px rgba(0,0,0,0.04);
+  }
+  .group-mini-card:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(255,107,157,0.2); }
+  .group-mini-card.active { border-color:var(--pink); box-shadow:0 4px 16px rgba(255,107,157,0.25); }
+  .group-mini-card .gmc-logo {
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    background-size:contain; background-repeat:no-repeat; background-position:center;
+    opacity:0.20; z-index:0;
+  }
+  .group-mini-card.active .gmc-logo { opacity:0.35; }
+  .group-mini-card .gmc-name { position:relative; z-index:1; font-size:0.72em; font-weight:700; color:var(--text); }
+
+  .reh-parts-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  .reh-part-card {
+    width:70px; padding:6px 4px; border-radius:10px; text-align:center;
+    font-size:0.72em; cursor:pointer; transition:all 0.2s;
+    border:2px solid transparent; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  }
+  .reh-part-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.12); }
+  .reh-part-card.filled { border-color:var(--card-color,#ff6b9d); }
+  .reh-part-card.missing { opacity:0.45; border:2px dashed #ddd; background:#fafafa; }
+  .reh-part-card .rpc-char { font-weight:700; margin-bottom:2px; }
+  .reh-part-card .rpc-dancer { font-size:0.85em; color:#888; }
+  .reh-part-card .rpc-status { font-size:0.7em; color:#ccc; }
+  .reh-part-card.shaking {
+    animation: shake 0.5s ease-in-out infinite;
+    border-color: #ef5350 !important; background:#fff5f5; cursor:pointer;
+  }
+  .reh-part-card.shaking .rpc-status { color:#ef5350; }
+  @keyframes shake {
+    0%,100% { transform:translateX(0); }
+    25% { transform:translateX(-3px); }
+    75% { transform:translateX(3px); }
+  }
 
   @media (max-width: 768px) {
     .navbar { padding: 0 15px; }

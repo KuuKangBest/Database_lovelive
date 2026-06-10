@@ -1,187 +1,170 @@
 # LoveLive! 综合管理系统
 
-一个 LoveLive! 主题的全栈 Web 应用，包含动漫角色信息查询和舞团排练时间管理两个子系统。
+LoveLive! 主题全栈 Web 应用：动漫角色介绍 + 舞团排练管理。
 
 ## 项目概览
 
-| 子系统 | 干什么 | 涉及的表 |
-|--------|--------|----------|
-| 角色介绍 | 浏览企划、动漫团、角色、声优，支持按年龄/团名等筛选 | project, anime_group, cv, character |
-| 排练管理 | 舞团排练的增删改查，展示每个时段的参与人数和饱和度 | dance_group, dancer, rehearsal, rehearsal_participation |
-
-两个子系统通过 `anime_group ↔ dance_group` 和 `character ↔ rehearsal_participation` 两条外键打通。
+| 子系统 | 功能 | 核心表 |
+|--------|------|--------|
+| 角色介绍 | 企划/团体/角色/声优浏览筛选，关系图谱，演唱会时间轴 | project, anime_group, cv, character, concert |
+| 排练管理 | 排练 CRUD，成员卡片指派（按动漫团全员展示），时间冲突检测 | dance_group, dancer, rehearsal, rehearsal_participation |
 
 ## 技术栈
 
 ```
-浏览器 (HTML/CSS/JS) → Node.js + Express → MySQL 8.0 (InnoDB)
+浏览器 (HTML/CSS/JS) → Node.js Express → MySQL 8.0 (InnoDB)
 ```
 
-- **前端**：原生 HTML + CSS + JS，粉色主题
-- **后端**：Node.js + Express + mysql2 连接池
-- **数据库**：8 张表、3 个视图、4 个触发器
-- **数据量**：5 企划 · 8 团体 · 48 角色 · 50 声优
+- **前端**：原生三件套，粉色 LoveLive 主题，滚动触发动画
+- **后端**：Node.js + Express + mysql2，dateStrings 纯净日期
+- **数据库**：9 表 · 1 视图 · 3 触发器（满员检查已移除，改为卡片数驱动）
+- **数据**：7 企划 · 9 团体 · 67 角色 · 60+ 声优 · 45 场演唱会
 
 ## 文件结构
 
 ```
 lab2/
-├── README.md              ← 本文件
-├── config.js              ← 数据库密码等配置（先改这里）
-├── server.js              ← API 后端
-├── start.js               ← 一键启动脚本
-├── stop.js                ← 停止服务
-├── init-db.js             ← 初始化数据库
-├── index.html             ← 前端页面
+├── README.md
+├── config.js                  ← 数据库配置（先改这里）
 ├── package.json
-├── requirements.md        ← 需求分析文档
-├── er-diagram.md          ← ER 图 (Mermaid)
-├── notes.md               ← 实验要求备忘
-├── sql/
-│   └── init.sql           ← 建表 + 测试数据 + 视图 + 触发器
-├── data/                  ← 搜集的原始数据（供参考）
-│   ├── 01-企划信息.md
-│   ├── 02-动漫团信息.md
-│   ├── 03-角色信息.md
-│   ├── 04-声优信息.md
-│   └── 05-关联映射.md
-└── db-lab02_2026.pdf      ← 原始实验说明
+├── .gitignore
+├── src/
+│   ├── server/
+│   │   ├── server.js          ← Express API
+│   │   ├── start.js           ← 一键启动（MySQL检查→端口释放→启动→开浏览器）
+│   │   ├── stop.js            ← 停止服务
+│   │   ├── init-db.js         ← 分层初始化（schema→seed→descriptions→test）
+│   │   ├── seed-db.js         ← 单独加载排练测试数据
+│   │   └── sql/
+│   │       ├── schema.sql     ← DDL（表·视图·触发器）
+│   │       ├── seed-data.sql  ← 基础数据
+│   │       ├── character-descriptions.sql ← 角色描述
+│   │       ├── character-call-response.sql ← 应援色·互动词
+│   │       ├── concerts.sql   ← 演唱会时间轴
+│   │       └── test-data.sql  ← 排练测试数据
+│   └── client/
+│       ├── index.html         ← 前端骨架
+│       ├── css/style.css      ← 全部样式
+│       ├── js/app.js          ← 全部逻辑
+│       ├── images/
+│       │   ├── logos/         ← 团体 Logo（μ's, Aqours, 虹咲, Liella!, 莲之空, 青鸟, Saint Snow, Sunny Passion）
+│       │   └── chars/         ← 角色 PNG 立绘（char-{id}.png, ~65张）
+│       └── logos/             ← 原始 logo 文件
+├── scripts/
+│   └── download-images.js     ← 图片下载脚本
+└── docs/
+    ├── requirements.md        ← 需求分析
+    ├── er-diagram.md          ← ER 图 (Mermaid)
+    ├── notes.md               ← 实验备忘
+    ├── db-lab02_2026.pdf      ← 原始实验 PDF
+    └── data/                  ← 搜集的原始资料
 ```
 
 ## 快速开始
 
-### 环境要求
-
-- Node.js ≥ 18
-- MySQL 8.0 已启动
-- 修改 `config.js` 中的数据库密码
-
-### 一键启动
-
 ```bash
 npm install        # 首次：安装依赖
-npm run init-db    # 首次：初始化数据库
-npm start          # 启动（自动检查 MySQL、释放端口、打开浏览器）
+npm run init-db    # 首次：初始化数据库（分层加载）
+npm start          # 一键启动 → http://localhost:3000
 npm run stop       # 停止服务
+npm run seed       # 单独重载排练测试数据
+npm run reinit     # 重置数据库 + 启动
 ```
 
-浏览器自动打开 **http://localhost:3000**。
+## 数据规模
+
+| 企划 | 团体 | 角色数 |
+|------|------|--------|
+| LoveLive! | μ's, A-RISE | 9 + 3 |
+| LoveLive! Sunshine!! | Aqours, Saint Snow | 9 + 2 |
+| LoveLive! 虹咲学园 | 虹咲学园学园偶像同好会 | 12 |
+| LoveLive! Superstar!! | Liella!, Sunny Passion | 11 + 2 |
+| Link! Like! LoveLive! | 莲之空女学院 | 8在校+3毕业 |
+| 生如百戏难！LOVELIVE! 青鸟 | 人生不易部！ | 10 |
+
+## 主要功能
+
+### 角色介绍
+- **企划 → 动漫团 → 角色** 三级导航跳转
+- 角色卡片：立绘背景 + 应援色圆点 + 爱好/描述
+- **角色详情弹窗**：完整信息 + 瞳色 + 应援色 + 互动词 + 近期排练记录
+- **关系图谱**：Canvas 动态力导向图，应援色节点，姐妹/搭档/幼驯染/憧憬关系，跨团联动，双向箭头
+- **演唱会时间轴**：7 企划 45 场，标签（1巡/Final/拼盘），表格对齐，企划页有联合拼盘入口
+- 动漫团 Logo 卡片背景
+- 角色页可按团体迷你卡片多选筛选
+
+### 排练管理
+- 排练 CRUD + 日期/状态筛选
+- **成员卡片展示**：按舞团关联的动漫团全员展示
+  - 已指派：角色应援色边框 + 舞见 CN
+  - 空缺：灰色虚框 + 点击快速指派
+- **删减角色**：编辑模式下灰卡抖动，点击移除非必要角色
+- 点击彩色卡片可修改/删除舞见
+- 时间冲突触发器自动检测
+- 删除排练级联清除参与记录
+
+### 交互
+- 滚动视口触发淡入动画
+- 首页四卡片点击跳转 + 悬停放大
+- 所有子页面"回到首页"按钮
 
 ## API 接口
 
-### 企划
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/projects` | 企划列表 |
-| GET | `/api/projects/:id` | 企划详情 |
+### 新增/变更接口
 
-### 动漫团
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/groups` | 团体列表（`?project_id=` 按企划筛选） |
-| GET | `/api/groups/:id` | 团体详情 + 成员列表 |
+| GET | `/api/concerts?project_id=` | 演唱会列表 |
+| DELETE | `/api/rehearsals/:id/chars/:charId` | 移除排练中的角色卡片 |
+| PUT | `/api/rehearsals/:id` | 修改排练（含 excluded_chars） |
 
-### 角色
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/characters` | 角色列表（`?group_id=&search=&cv_age_min=&cv_age_max=`） |
-| GET | `/api/characters/:id` | 角色详情 + 关联的排练记录 |
+### 已有接口
 
-### 声优
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/seiyuu` | 声优列表（`?age_min=&age_max=`） |
-| GET | `/api/seiyuu/:id` | 声优详情 + 配音角色 |
-
-### 排练
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/rehearsals` | 排练列表（`?date_from=&date_to=&status=&dance_group_id=`） |
-| GET | `/api/rehearsals/:id` | 排练详情 + 参与人员 |
-| POST | `/api/rehearsals` | 新增排练 |
-| PUT | `/api/rehearsals/:id` | 修改排练 |
-| DELETE | `/api/rehearsals/:id` | 删除排练（级联删除参与记录） |
-| POST | `/api/rehearsals/:id/participants` | 添加参与舞见（触发器检查满员/冲突） |
-| DELETE | `/api/rehearsals/:reh_id/participants/:part_id` | 移除参与舞见 |
-
-### 舞团 / 舞见
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET/POST | `/api/dance-groups` | 列表 / 新建舞团 |
-| GET | `/api/dance-groups/:id` | 舞团详情 + 成员 + 排练 |
-| GET/POST | `/api/dancers` | 列表 / 新建舞见（`?dance_group_id=`） |
-
-### 统计
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/stats` | 企划/团体/角色/声优/排练 数量 |
+同之前文档，详见 `server.js`。关键变更：
+- `/api/groups` 返回 `char_count`
+- `/api/characters` 返回 `eye_color`, `cheering_color`, `call_response`
+- 所有日期返回纯 `YYYY-MM-DD` 字符串
 
 ## 数据库设计
 
-### 表
+### 新增表
 
-| 表 | 行数 | 关键约束 |
-|----|------|----------|
-| project | 5 | name UNIQUE |
-| anime_group | 8 | FK → project (CASCADE) |
-| cv | 50 | birth_date 上有索引 |
-| character | 48 | FK → anime_group (CASCADE), FK → cv (SET NULL) |
-| dance_group | 动态 | FK → anime_group (SET NULL) |
-| dancer | 动态 | FK → dance_group (CASCADE) |
-| rehearsal | 动态 | FK → dance_group (CASCADE), max_participants ≥ 0 |
-| rehearsal_participation | 动态 | UNIQUE(rehearsal_id, dancer_id, character_id) |
+| 表 | 说明 |
+|----|------|
+| concert | 演唱会时间轴（45条记录，含 label 标签列） |
 
-### 视图
+### 新增字段
 
-- **rehearsal_with_count** — 排练人数统计：当前参与人数 + 饱和度百分比 + 状态分级
-- **character_rehearsal_summary** — 角色排练汇总：每个角色参与了多少次排练、涉及多少舞团
-- **dancer_schedule_conflict_view** — 舞见时间冲突检测
+| 表 | 字段 | 说明 |
+|----|------|------|
+| character | cheering_color | 应援色 #RRGGBB |
+| character | call_response | 演唱会互动词 |
+| character | eye_color | 瞳色 |
+| rehearsal | excluded_chars | 逗号分隔的排除角色ID |
 
-### 触发器
+### 触发器（当前）
 
-| 触发器 | 表 | 时机 | 作用 |
-|--------|-----|------|------|
-| trg_rehearsal_check_max | rehearsal | INSERT | max_participants 不能为负数 |
-| trg_rehearsal_update_check | rehearsal | UPDATE | 上限不能小于当前参与人数 |
-| trg_participation_check_full | rehearsal_participation | INSERT | 满员时拒绝添加 |
-| trg_participation_check_conflict | rehearsal_participation | INSERT | 同舞见同时间冲突时拒绝 |
+| 触发器 | 作用 |
+|--------|------|
+| trg_rehearsal_check_max | INSERT 时 max_participants ≥ 0 |
+| trg_rehearsal_update_check | UPDATE 时上限不低于当前人数 |
+| trg_participation_check_conflict | INSERT 时同舞见同时间冲突拒绝 |
 
-### 级联删除策略
-
-| 父 → 子 | 策略 |
-|----------|------|
-| project → anime_group | CASCADE |
-| anime_group → character | CASCADE |
-| cv → character | SET NULL |
-| anime_group → dance_group | SET NULL |
-| dance_group → dancer | CASCADE |
-| dance_group → rehearsal | CASCADE |
-| rehearsal → rehearsal_participation | CASCADE |
-| dancer → rehearsal_participation | CASCADE |
-| character → rehearsal_participation | CASCADE |
-
-## 饱和度分级
-
-每个排练通过 `rehearsal_with_count` 视图计算饱和度：
-
-| 状态 | 条件 | 前端颜色 |
-|------|------|----------|
-| unlimited | 上限 = 0 | 灰 |
-| available | < 50% | 绿 |
-| near_full | 50% ~ 99% | 黄/橙 |
-| full | ≥ 100% | 红 |
-
-满员排练再添加参与舞见会被触发器拒绝。
+> `trg_participation_check_full` 已移除——人数由卡片数量驱动，不再用 max_participants 限制添加。
 
 ## TODO
 
-- [ ] 排练详情页点击参与角色名跳转到角色详情
-- [ ] 月视图：用颜色圆点展示每日排练的饱和度热力图
-- [ ] 前端表单增加角色下拉选择器，替代手动填角色 ID
-- [ ] 增加图片上传功能，角色和声优支持本地图片
-- [ ] 用户登录与舞团权限管理
-- [ ] 排练数据导出为 CSV/Excel
-- [ ] 莲之空角色的详细信息补全（声优出生日期、角色血型等）
+- [ ] 排练新增时根据舞团关联的动漫团自动预选全员角色
+- [ ] 角色卡片点击立绘放大预览
+- [ ] 声优独立页面（目前嵌入角色列表）
+- [ ] 莲之空 104/105 期生详细信息补全（瞳色、应援色、互动词）
+- [ ] 青鸟/人生不易部 声优出生日期补全
+- [ ] 唐可可等 5 个缺失立绘补充下载
+- [ ] 数据库 `init.sql` 旧引用清理（已拆分为多层 SQL）
+- [ ] 排练人员修改时的表单改为下拉选择器（替代 prompt 弹窗）
+- [ ] 月视图排练日历
+- [ ] 排练数据导出 CSV/Excel
+- [ ] 用户登录与舞团权限
 - [ ] 暗色模式
 
 ---

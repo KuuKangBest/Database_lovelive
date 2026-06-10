@@ -22,6 +22,7 @@ app.use((req, res, next) => {
 // 数据库连接池
 const pool = mysql.createPool({
   ...config.db,
+  dateStrings: true,
   waitForConnections: true,
   connectionLimit: 10,
 });
@@ -43,7 +44,8 @@ app.get('/api/projects/:id', async (req, res) => {
 
 app.get('/api/groups', async (req, res) => {
   const { project_id } = req.query;
-  let sql = `SELECT g.*, p.name AS project_name
+  let sql = `SELECT g.*, p.name AS project_name,
+             (SELECT COUNT(*) FROM \`character\` c WHERE c.group_id = g.group_id) AS char_count
              FROM anime_group g LEFT JOIN project p ON g.project_id = p.project_id`;
   const params = [];
   if (project_id) { sql += ' WHERE g.project_id = ?'; params.push(project_id); }
@@ -60,7 +62,7 @@ app.get('/api/groups/:id', async (req, res) => {
   if (!group) return res.status(404).json({ error: '未找到' });
   const [members] = await pool.query(
     `SELECT c.character_id, c.name, c.birthday, c.blood_type, c.height,
-            cv.name AS cv_name
+            c.cheering_color, cv.name AS cv_name
      FROM \`character\` c LEFT JOIN cv ON c.cv_id = cv.cv_id
      WHERE c.group_id = ? ORDER BY c.character_id`, [req.params.id]);
   res.json({ ...group, members });
@@ -70,7 +72,7 @@ app.get('/api/groups/:id', async (req, res) => {
 
 app.get('/api/characters', async (req, res) => {
   const { group_id, search, cv_age_min, cv_age_max } = req.query;
-  let sql = `SELECT c.*, g.name AS group_name, cv.name AS cv_name, cv.birth_date
+  let sql = `SELECT c.*, g.name AS group_name, cv.name AS cv_name, cv.birth_date, c.eye_color
              FROM \`character\` c
              LEFT JOIN anime_group g ON c.group_id = g.group_id
              LEFT JOIN cv ON c.cv_id = cv.cv_id WHERE 1=1`;
@@ -229,11 +231,32 @@ app.post('/api/rehearsals', async (req, res) => {
 });
 
 app.put('/api/rehearsals/:id', async (req, res) => {
-  const { dance_group_id, rehearsal_date, start_time, end_time, location, max_participants, content_summary } = req.body;
+  const { dance_group_id, rehearsal_date, start_time, end_time, location, max_participants, content_summary, excluded_chars } = req.body;
   await pool.query(
-    'UPDATE rehearsal SET dance_group_id=?, rehearsal_date=?, start_time=?, end_time=?, location=?, max_participants=?, content_summary=? WHERE rehearsal_id=?',
-    [dance_group_id, rehearsal_date, start_time, end_time, location, max_participants, content_summary, req.params.id]);
+    'UPDATE rehearsal SET dance_group_id=?, rehearsal_date=?, start_time=?, end_time=?, location=?, max_participants=?, content_summary=?, excluded_chars=? WHERE rehearsal_id=?',
+    [dance_group_id, rehearsal_date, start_time, end_time, location, max_participants, content_summary, excluded_chars||null, req.params.id]);
   res.json({ success: true });
+});
+
+// 删除排练中的某个角色需求（移除卡片）
+app.delete('/api/rehearsals/:id/chars/:charId', async (req, res) => {
+  var conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    // 获取当前 excluded_chars
+    var [[reh]] = await conn.query('SELECT excluded_chars, max_participants FROM rehearsal WHERE rehearsal_id=?', [req.params.id]);
+    if (!reh) return res.status(404).json({error:'未找到'});
+    var excluded = reh.excluded_chars ? reh.excluded_chars.split(',').map(Number) : [];
+    if (!excluded.includes(parseInt(req.params.charId))) excluded.push(parseInt(req.params.charId));
+    // 删除该角色的参与记录（如果有）
+    await conn.query('DELETE FROM rehearsal_participation WHERE rehearsal_id=? AND character_id=?', [req.params.id, req.params.charId]);
+    // 更新 excluded_chars 和 max_participants
+    await conn.query('UPDATE rehearsal SET excluded_chars=?, max_participants=max_participants-1 WHERE rehearsal_id=?',
+      [excluded.join(','), req.params.id]);
+    await conn.commit();
+    res.json({success:true});
+  } catch(e) { await conn.rollback(); res.status(500).json({error:e.message}); }
+  finally { conn.release(); }
 });
 
 app.delete('/api/rehearsals/:id', async (req, res) => {
@@ -252,6 +275,18 @@ app.post('/api/rehearsals/:id/participants', async (req, res) => {
 app.delete('/api/rehearsals/:reh_id/participants/:part_id', async (req, res) => {
   await pool.query('DELETE FROM rehearsal_participation WHERE participation_id = ?', [req.params.part_id]);
   res.json({ success: true });
+});
+
+// ========== 演唱会 ==========
+
+app.get('/api/concerts', async (req, res) => {
+  const { project_id } = req.query;
+  let sql = 'SELECT * FROM concert';
+  const params = [];
+  if (project_id) { sql += ' WHERE project_id = ?'; params.push(project_id); }
+  sql += ' ORDER BY concert_date';
+  const [rows] = await pool.query(sql, params);
+  res.json(rows);
 });
 
 // ========== 统计 ==========
