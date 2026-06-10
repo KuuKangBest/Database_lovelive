@@ -15,7 +15,7 @@ function showPage(name, filterVal) {
   document.querySelectorAll('.nav-links button').forEach(function(b){if(b.getAttribute('data-page')===name)b.classList.add('active');});
   if (name==='projects') loadProjects();
   if (name==='groups') loadGroups();
-  if (name==='characters') loadCharacters();
+  if (name==='characters'){ if(!filterVal) selectedGroups=[]; loadCharacters(); }
   if (name==='rehearsal') { renderCalendar(); loadPerfView(); }
   if (name==='dancegroups') loadDgMgmt();
   if (name==='dancers') loadDancerList();
@@ -86,16 +86,13 @@ async function loadCharacters(){
   if (cardsWrap.children.length===0){
     var gr = await fetch(API+'/groups'); var groups = await gr.json();
     buildGroupMiniCards(groups);
-    if (pageFilter&&pageFilter.gid){
-      selectedGroups=[String(pageFilter.gid)]; pageFilter=null;
-      setTimeout(function(){
-        document.querySelectorAll('.group-mini-card').forEach(function(c){c.classList.toggle('active',c.dataset.gid===selectedGroups[0]);});
-        loadCharacters();
-      },100);
-      return;
-    }
     document.querySelectorAll('.group-mini-card').forEach(function(c){c.classList.add('active');});
     selectedGroups=groups.map(function(g){return String(g.group_id);});
+  }
+  // 每次进入角色页都检查是否有来自动漫团的筛选指令
+  if (pageFilter&&pageFilter.gid){
+    selectedGroups=[String(pageFilter.gid)]; pageFilter=null;
+    document.querySelectorAll('.group-mini-card').forEach(function(c){c.classList.toggle('active',c.dataset.gid===selectedGroups[0]);});
   }
   var search = document.getElementById('char-search').value;
   var ageRange = document.getElementById('char-filter-age').value;
@@ -104,8 +101,8 @@ async function loadCharacters(){
   if (search) url+='search='+encodeURIComponent(search)+'&';
   if (ageRange){var parts=ageRange.split('-');url+='cv_age_min='+parts[0]+'&cv_age_max='+parts[1]+'&';}
   var r = await fetch(url); var chars = await r.json();
-  if (selectedGroups.length>1) chars=chars.filter(function(c){return selectedGroups.indexOf(String(c.group_id))>=0;});
-  if (!selectedGroups.length){document.getElementById('char-grid').innerHTML='<p style="color:#999;text-align:center;padding:40px;">点击团体卡片查看角色</p>';return;}
+  if (selectedGroups.length>=1){ chars=chars.filter(function(c){return selectedGroups.indexOf(String(c.group_id))>=0;}); }
+  else { document.querySelectorAll('.group-mini-card').forEach(function(c){c.classList.add('active');}); }
 
   var grp={}; chars.forEach(function(c){var gn=c.group_name||'其他'; if(!grp[gn])grp[gn]=[]; grp[gn].push(c);});
   document.getElementById('char-grid').innerHTML = Object.entries(grp).map(function(e){
