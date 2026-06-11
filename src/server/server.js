@@ -277,6 +277,63 @@ app.delete('/api/rehearsals/:reh_id/participants/:part_id', async (req, res) => 
   res.json({ success: true });
 });
 
+// ========== 排练角色槽位管理 ==========
+
+// 加回已排除角色
+app.post('/api/rehearsals/:id/chars', async (req, res) => {
+  try {
+    var [[reh]] = await pool.query('SELECT excluded_chars FROM rehearsal WHERE rehearsal_id=?', [req.params.id]);
+    if (!reh) return res.status(404).json({error:'未找到'});
+    var excluded = reh.excluded_chars ? reh.excluded_chars.split(',').map(Number) : [];
+    var cid = parseInt(req.body.character_id);
+    var idx = excluded.indexOf(cid);
+    if (idx === -1) return res.json({success:true});
+    excluded.splice(idx, 1);
+    await pool.query('UPDATE rehearsal SET excluded_chars=?, max_participants=max_participants+1 WHERE rehearsal_id=?',
+      [excluded.length ? excluded.join(',') : null, req.params.id]);
+    res.json({success:true});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+// 移除角色卡片
+app.delete('/api/rehearsals/:id/chars/:charId', async (req, res) => {
+  var conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    var [[reh]] = await conn.query('SELECT excluded_chars, extra_chars, max_participants FROM rehearsal WHERE rehearsal_id=?', [req.params.id]);
+    if (!reh) return res.status(404).json({error:'未找到'});
+    var cid = parseInt(req.params.charId);
+    var excluded = reh.excluded_chars ? reh.excluded_chars.split(',').map(Number) : [];
+    var extra = reh.extra_chars ? reh.extra_chars.split(',').map(Number) : [];
+    await conn.query('DELETE FROM rehearsal_participation WHERE rehearsal_id=? AND character_id=?', [req.params.id, cid]);
+    if (extra.includes(cid)) {
+      extra = extra.filter(function(x) { return x !== cid; });
+      await conn.query('UPDATE rehearsal SET extra_chars=?, max_participants=max_participants-1 WHERE rehearsal_id=?',
+        [extra.length ? extra.join(',') : null, req.params.id]);
+    } else {
+      if (!excluded.includes(cid)) excluded.push(cid);
+      await conn.query('UPDATE rehearsal SET excluded_chars=?, max_participants=max_participants-1 WHERE rehearsal_id=?',
+        [excluded.join(','), req.params.id]);
+    }
+    await conn.commit();
+    res.json({success:true});
+  } catch(e) { await conn.rollback(); res.status(500).json({error:e.message}); }
+  finally { conn.release(); }
+});
+
+// 新增跨团角色槽位
+app.post('/api/rehearsals/:id/slots/:charId', async (req, res) => {
+  try {
+    var [[reh]] = await pool.query('SELECT extra_chars FROM rehearsal WHERE rehearsal_id=?', [req.params.id]);
+    var extra = reh.extra_chars ? reh.extra_chars.split(',').map(Number) : [];
+    var cid = parseInt(req.params.charId);
+    if (!extra.includes(cid)) extra.push(cid);
+    await pool.query('UPDATE rehearsal SET extra_chars=?, max_participants=max_participants+1 WHERE rehearsal_id=?',
+      [extra.join(','), req.params.id]);
+    res.json({success:true});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
 // ========== 演唱会 ==========
 
 app.get('/api/concerts', async (req, res) => {

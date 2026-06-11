@@ -269,7 +269,7 @@ showExcludedPicker=async function(rehId){
   pk.innerHTML='<span style="color:#999;">已移除：</span> '+list.map(function(c){return'<span class="tag" style="cursor:pointer;background:#fce4ec;color:#c62828;margin:2px;" onclick="reAddChar('+rehId+','+c.character_id+')" title="点击加回">'+c.name+' ↗</span>';}).join(' ');
   el.appendChild(pk);
 };
-reAddChar=function(rehId,charId){fetch(API+'/rehearsals/'+rehId+'/chars/'+charId,{method:'POST'}).then(function(){renderRehDetail(rehId);setTimeout(function(){toggleSlotEdit(rehId);},200);});};
+reAddChar=function(rehId,charId){fetch(API+'/rehearsals/'+rehId+'/chars',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:charId})}).then(function(){renderRehDetail(rehId);setTimeout(function(){toggleSlotEdit(rehId);},200);});};
 addNewCharSlot=function(rehId,charId){fetch(API+'/rehearsals/'+rehId+'/slots/'+charId,{method:'POST'}).then(function(){renderRehDetail(rehId);});};
 
 openAddCharPopup=async function(rehId){
