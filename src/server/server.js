@@ -179,6 +179,13 @@ app.post('/api/dance-groups', async (req, res) => {
   res.json({ dance_group_id: result.insertId });
 });
 
+app.delete('/api/dance-groups/:id', async (req, res) => {
+  const [[dg]] = await pool.query('SELECT * FROM dance_group WHERE dance_group_id = ?', [req.params.id]);
+  if (!dg) return res.status(404).json({ error: '舞团不存在' });
+  await pool.query('DELETE FROM dance_group WHERE dance_group_id = ?', [req.params.id]);
+  res.json({ success: true, name: dg.name });
+});
+
 // ========== 舞见 API ==========
 
 app.get('/api/dancers/search', async (req, res) => {
@@ -223,14 +230,33 @@ app.get('/api/dancers', async (req, res) => {
 
 app.post('/api/dancers', async (req, res) => {
   const { dance_group_id, cn_name, qq, contact_info } = req.body;
+  if (!cn_name || !cn_name.trim()) return res.status(400).json({ error: 'CN名不能为空' });
   if (qq) {
-    const [existing] = await pool.query('SELECT * FROM dancer WHERE qq=?', [qq]);
-    if (existing.length) return res.json(existing[0]);
+    // 检查同一QQ+CN+舞团是否已存在
+    const [dup] = await pool.query(
+      'SELECT * FROM dancer WHERE qq=? AND cn_name=? AND (dance_group_id=? OR (dance_group_id IS NULL AND ? IS NULL))',
+      [qq, cn_name.trim(), dance_group_id || null, dance_group_id || null]);
+    if (dup.length) return res.json(dup[0]);
   }
   const [result] = await pool.query(
     'INSERT INTO dancer (dance_group_id, cn_name, qq, contact_info) VALUES (?, ?, ?, ?)',
-    [dance_group_id, cn_name, qq||null, contact_info||null]);
-  res.json({ dancer_id: result.insertId, cn_name: cn_name, qq: qq });
+    [dance_group_id || null, cn_name.trim(), qq || null, contact_info || null]);
+  res.json({ dancer_id: result.insertId, cn_name: cn_name.trim(), qq: qq || null, dance_group_id: dance_group_id || null });
+});
+
+app.put('/api/dancers/:id', async (req, res) => {
+  const { dance_group_id, cn_name, qq, contact_info } = req.body;
+  const [[d]] = await pool.query('SELECT * FROM dancer WHERE dancer_id=?', [req.params.id]);
+  if (!d) return res.status(404).json({ error: '舞见不存在' });
+  await pool.query(
+    'UPDATE dancer SET dance_group_id=?, cn_name=?, qq=?, contact_info=? WHERE dancer_id=?',
+    [dance_group_id !== undefined ? (dance_group_id || null) : d.dance_group_id,
+     cn_name || d.cn_name,
+     qq !== undefined ? (qq || null) : d.qq,
+     contact_info !== undefined ? (contact_info || null) : d.contact_info,
+     req.params.id]);
+  const [[updated]] = await pool.query('SELECT * FROM dancer WHERE dancer_id=?', [req.params.id]);
+  res.json(updated);
 });
 
 app.get('/api/dancers/:id/stats', async (req, res) => {

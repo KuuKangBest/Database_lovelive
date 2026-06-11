@@ -118,6 +118,14 @@
     <button class="back-home" onclick="showPage('home')">&#9664; 回到首页</button>
     <h2 style="color:var(--pink);margin-bottom:16px;">舞团</h2>
     <div class="grid" id="dg-mgmt-list"></div>
+    <div style="margin-top:40px;user-select:none;color:#999;font-size:0.9em;font-weight:700;margin-bottom:10px;">新建舞团</div>
+    <div class="dg-new-form">
+      <input type="text" id="dg-new-name" placeholder="输入新舞团名称…" style="flex:1;padding:10px 14px;border-radius:20px;border:2px solid #eee;font-size:0.95em;" onkeydown="if(event.key==='Enter')addDanceGroup()">
+      <select id="dg-new-anime-group" style="padding:10px 14px;border-radius:20px;border:2px solid #eee;font-size:0.9em;min-width:140px;">
+        <option value="">翻跳团体（可选）</option>
+      </select>
+      <button class="btn btn-primary" onclick="addDanceGroup()">确认新建</button>
+    </div>
   </div>
   <!-- 舞见 -->
   <div id="dancers" class="page">
@@ -126,14 +134,14 @@
       <h2 style="color:var(--pink);">舞见</h2>
       <div style="display:flex;gap:6px;">
         <select id="dancer-dg-filter" onchange="loadDancerList()" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;"></select>
-        <input type="text" id="dancer-new-cn" placeholder="搜索/新建 CN名" title="输入CN名实时筛选" oninput="loadDancerList()" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;width:130px;">
-        <input type="text" id="dancer-new-qq" placeholder="搜索/新建 QQ" title="输入QQ号实时筛选" oninput="loadDancerList()" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;width:130px;">
+        <input type="text" id="dancer-new-cn" placeholder="搜索 CN名" title="输入CN名实时筛选" oninput="loadDancerList()" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;width:130px;">
+        <input type="text" id="dancer-new-qq" placeholder="搜索 QQ" title="输入QQ号实时筛选" oninput="loadDancerList()" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;width:130px;">
         <details class="group-select-panel" id="dancer-char-panel" style="margin-bottom:14px;">
       <summary style="color:var(--pink);font-weight:700;cursor:pointer;font-size:0.9em;">🎭 角色偏见筛选 <span id="dancer-char-label" style="font-weight:400;color:#999;font-size:0.85em;margin-left:4px;"></span></summary>
       <div id="dancer-char-cards" style="margin-top:10px;"></div>
     </details>
     <input type="hidden" id="dancer-char-search">
-        <button class="btn btn-primary btn-sm" onclick="addDancer()">+ 新建</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddDancer()">+ 新建舞见</button>
       </div>
     </div>
     <div id="dancer-mgmt-list"></div>
@@ -171,6 +179,28 @@
   </div>
 </div>
 
+<!-- 新建/编辑舞见弹窗 -->
+<div class="modal-overlay" id="modal-dancer-add">
+  <div class="modal" style="max-width:420px;">
+    <h2 id="dancer-modal-title">新建舞见</h2>
+    <form id="form-dancer" onsubmit="submitDancer(event)">
+      <label>CN名 <span style="color:#e53935;">*必填</span></label>
+      <input type="text" id="f-dancer-cn" required placeholder="如：小明" style="width:100%;padding:10px;border-radius:8px;border:2px solid #eee;margin-bottom:12px;">
+      <label>QQ号 <span style="color:#e53935;">*必填</span></label>
+      <input type="text" id="f-dancer-qq" required placeholder="如：1234567890" style="width:100%;padding:10px;border-radius:8px;border:2px solid #eee;margin-bottom:12px;">
+      <label>所属舞团 <span style="color:#999;font-weight:400;">（可选，后续可修改）</span></label>
+      <select id="f-dancer-dg" style="width:100%;padding:10px;border-radius:8px;border:2px solid #eee;margin-bottom:12px;">
+        <option value="">暂不加入舞团</option>
+      </select>
+      <input type="hidden" id="f-dancer-edit-id" value="">
+      <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end;">
+        <button type="button" class="btn" onclick="closeModal('modal-dancer-add')">取消</button>
+        <button type="submit" class="btn btn-primary">确认新建</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- 角色详情弹窗 -->
 <div class="modal-overlay" id="modal-char">
   <div class="modal" style="max-width:700px;">
@@ -184,6 +214,6 @@
   </div>
 </div>
 
-<script src="js/app.js?v=8"></script>
+<script src="js/app.js?v=9"></script>
 </body>
 </html>
