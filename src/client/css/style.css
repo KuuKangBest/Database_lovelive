@@ -266,6 +266,14 @@
   .reh-card-btns button { width:22px;height:22px;border:none;border-radius:4px;font-size:12px;cursor:pointer; }
   .reh-card-btns button:first-child { background:#fff;color:var(--pink);border:1px solid var(--pink); }
   .reh-card-btns button:last-child { background:#fff;color:#ef5350;border:1px solid #ef5350; }
+
+  .reh-calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; max-width:380px; margin:0 auto 16px; text-align:center; font-size:0.9em; }
+  .reh-calendar .cal-hd { color:var(--pink); font-weight:700; padding:6px 2px; font-size:0.75em; text-transform:uppercase; letter-spacing:0.5px; }
+  .reh-calendar .cal-day { padding:8px 2px; border-radius:8px; cursor:pointer; transition:all 0.2s; min-height:38px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .reh-calendar .cal-day:hover { background:var(--pink-light); }
+  .reh-calendar .cal-day.has-reh { background:#fff0f5; font-weight:700; }
+  .reh-calendar .cal-day.today { border:2px solid var(--pink); font-weight:700; }
+  .reh-calendar .cal-day.other { color:#ddd; }
   .reh-part-card.shaking {
     animation: shake 0.5s ease-in-out infinite;
     border-color: #ef5350 !important; background:#fff5f5; cursor:pointer;

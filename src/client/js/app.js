@@ -29,6 +29,7 @@ async function loadHome() {
   document.getElementById('stat-groups').textContent=stats.groupCount;
   document.getElementById('stat-chars').textContent=stats.charCount;
   document.getElementById('stat-seiyuu').textContent=stats.rehCount;
+  try{renderHomeCalendar();}catch(e){}
   var dgs=await(await fetch(API+'/dance-groups')).json();document.getElementById('stat-dgs').textContent=dgs.length;
   var dancers=await(await fetch(API+'/dancers')).json();document.getElementById('stat-dancers').textContent=dancers.length;
   var rr = await fetch(API+'/rehearsals'); var list = await rr.json();
@@ -231,8 +232,8 @@ async function buildRehModal(rehId){
     var partMap={};parts.forEach(function(p){partMap[p.character_id]=p;});
     var cards=allChars.map(function(c,idx){
       var p=partMap[c.character_id];
-      if(p) return '<div class="reh-part-card filled" data-cid="'+c.character_id+'" style="--card-color:'+(c.cheering_color||'#ccc')+'"><div class="rpc-char" style="color:'+(c.cheering_color||'#666')+'">'+c.name+'</div><div class="rpc-dancer">'+p.cn_name+'</div><div class="reh-card-btns"><button onclick="event.stopPropagation();doRehAction(\'editDancer\','+rehId+','+c.character_id+','+p.participation_id+')" title="修改">✎</button><button onclick="event.stopPropagation();doRehAction(\'delDancer\','+rehId+','+c.character_id+','+p.participation_id+')" title="删除">×</button></div></div>';
-      return '<div class="reh-part-card missing" data-cid="'+c.character_id+'"><div class="rpc-char">'+c.name+'</div><div class="rpc-status">空缺</div><button class="add-btn" onclick="event.stopPropagation();doRehAction(\'addDancer\','+rehId+','+c.character_id+',0)">+ 指派</button></div>';
+      if(p) return '<div class="reh-part-card filled" data-cid="'+c.character_id+'" style="--card-color:'+(c.cheering_color||'#ccc')+'"><div class="rpc-char" style="color:'+(c.cheering_color||'#666')+';cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();closeModal(\'modal-char\');showCharDetail('+c.character_id+')">'+c.name+'</div><div class="rpc-dancer" style="cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();closeModal(\'modal-char\');showDancerDetail('+p.dancer_id+')">'+p.cn_name+'</div><div class="reh-card-btns"><button onclick="event.stopPropagation();doRehAction(\'editDancer\','+rehId+','+c.character_id+','+p.participation_id+')" title="修改">✎</button><button onclick="event.stopPropagation();doRehAction(\'delDancer\','+rehId+','+c.character_id+','+p.participation_id+')" title="删除">×</button></div></div>';
+      return '<div class="reh-part-card missing" data-cid="'+c.character_id+'"><div class="rpc-char" style="cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();closeModal(\'modal-char\');showCharDetail('+c.character_id+')">'+c.name+'</div><div class="rpc-status">空缺</div><button class="add-btn" onclick="event.stopPropagation();doRehAction(\'addDancer\','+rehId+','+c.character_id+',0)">+ 指派</button></div>';
     }).join('');
 
     el.innerHTML='<div style="padding:12px 16px;background:linear-gradient(135deg,#ff6b9d,#e878a8);border-radius:12px;color:#fff;margin-bottom:14px;"><strong>'+dgName+'</strong> '+fmtDate(reh.rehearsal_date)+'<br><span style="font-size:0.8em;opacity:0.8;">'+(reh.content_summary||'')+' · '+(reh.start_time||'').slice(0,5)+'-'+(reh.end_time||'').slice(0,5)+' @'+(reh.location||'?')+'</span></div>'+
@@ -450,7 +451,11 @@ async function renderCal(calId){
   }
   cal.innerHTML=html;
 }
-jumpToDate=function(ds){document.getElementById('reh-date-from').value=ds;document.getElementById('reh-date-to').value=ds;document.getElementById('reh-show-history').checked=true;loadPerfView();};
+jumpToDate=function(ds){
+  var df=document.getElementById('reh-date-from');
+  if(df){df.value=ds;document.getElementById('reh-date-to').value=ds;loadPerfView();}
+  else{showPage('rehearsal');setTimeout(function(){document.getElementById('reh-date-from').value=ds;document.getElementById('reh-date-to').value=ds;loadPerfView();},200);}
+};
 
 // ── DG / Dancer management
 loadDgMgmt=async function(){

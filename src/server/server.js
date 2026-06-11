@@ -96,7 +96,7 @@ app.get('/api/characters/:id', async (req, res) => {
   if (!row) return res.status(404).json({ error: '未找到' });
   const [rehearsals] = await pool.query(
     `SELECT DISTINCT r.rehearsal_id, r.rehearsal_date, r.start_time, r.end_time, r.location,
-            dg.name AS dance_group_name, d.cn_name
+            dg.name AS dance_group_name, dg.dance_group_id, d.cn_name, d.dancer_id
      FROM rehearsal_participation rp
      JOIN rehearsal r ON rp.rehearsal_id = r.rehearsal_id
      JOIN dance_group dg ON r.dance_group_id = dg.dance_group_id
