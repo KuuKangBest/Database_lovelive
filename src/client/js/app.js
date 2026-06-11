@@ -400,7 +400,7 @@ safeOn('reh-date-to','change',loadPerfView);
 
 // ── Scroll animation
 (function(){
-  var ob=new IntersectionObserver(function(entries){entries.forEach(function(entry){if(entry.isIntersecting){entry.target.classList.add('visible');ob.unobserve(entry.target);}});},{threshold:0.1});
+  var ob=new IntersectionObserver(function(entries){entries.forEach(function(entry){if(entry.isIntersecting){entry.target.classList.remove('visible');void entry.target.offsetWidth;entry.target.classList.add('visible');}});},{threshold:0.15});
   function watch(){document.querySelectorAll('.card,.rehearsal-item,.stat-card').forEach(function(el){if(!el.classList.contains('anim-item'))el.classList.add('anim-item');ob.observe(el);});}
   var orig=showPage;showPage=function(n,f){orig(n,f);setTimeout(watch,150);};
   watch();
