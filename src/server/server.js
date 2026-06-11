@@ -192,7 +192,6 @@ app.get('/api/dancers', async (req, res) => {
 
 app.post('/api/dancers', async (req, res) => {
   const { dance_group_id, cn_name, qq, contact_info } = req.body;
-  // QQ号优先搜索
   if (qq) {
     const [existing] = await pool.query('SELECT * FROM dancer WHERE qq=?', [qq]);
     if (existing.length) return res.json(existing[0]);
@@ -201,6 +200,20 @@ app.post('/api/dancers', async (req, res) => {
     'INSERT INTO dancer (dance_group_id, cn_name, qq, contact_info) VALUES (?, ?, ?, ?)',
     [dance_group_id, cn_name, qq||null, contact_info||null]);
   res.json({ dancer_id: result.insertId, cn_name: cn_name, qq: qq });
+});
+
+app.get('/api/dancers/:id/stats', async (req, res) => {
+  const [rows] = await pool.query(
+    `SELECT c.name AS character_name, c.character_id, c.cheering_color, COUNT(*) AS play_count
+     FROM rehearsal_participation rp JOIN \`character\` c ON rp.character_id=c.character_id
+     WHERE rp.dancer_id=? GROUP BY c.character_id ORDER BY play_count DESC LIMIT 10`,
+    [req.params.id]);
+  res.json(rows);
+});
+
+app.delete('/api/dancers/:id', async (req, res) => {
+  await pool.query('DELETE FROM dancer WHERE dancer_id=?', [req.params.id]);
+  res.json({success:true});
 });
 
 // ========== 排练 API ==========

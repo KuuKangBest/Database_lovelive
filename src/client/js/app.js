@@ -244,9 +244,10 @@ async function buildRehModal(rehId){
 }
 
 // ── 指派舞见弹窗（搜索 + 新建）
-showAssignPopup=function(rehId, charId){
-  var html='<h3>指派舞见</h3>';
-  html+='<input type="text" id="assign-search" placeholder="搜索舞见CN..." style="width:100%;padding:10px;border-radius:8px;border:2px solid #eee;margin-bottom:8px;" oninput="searchDancers('+rehId+','+charId+')">';
+showAssignPopup=function(rehId, charId, oldPid){
+  var isEdit = (typeof oldPid !== 'undefined' && oldPid > 0);
+  var html='<h3>'+(isEdit?'修改舞见':'指派舞见')+'</h3>';
+  html+='<input type="text" id="assign-search" placeholder="搜索舞见CN..." style="width:100%;padding:10px;border-radius:8px;border:2px solid #eee;margin-bottom:8px;" oninput="searchDancers('+rehId+','+charId+','+(oldPid||0)+')">';
   html+='<div id="assign-results" style="max-height:200px;overflow-y:auto;"></div>';
   html+='<div id="assign-new-form" style="display:none;margin-top:10px;padding:10px;background:#fdf6f8;border-radius:8px;">';
   html+='<p style="font-size:0.85em;color:#999;">未找到，新建舞见：</p>';
@@ -259,7 +260,7 @@ showAssignPopup=function(rehId, charId){
   setTimeout(function(){document.getElementById('assign-search').focus();},100);
 };
 
-searchDancers=async function(rehId, charId){
+searchDancers=async function(rehId, charId, oldPid){
   var q=document.getElementById('assign-search').value.trim();
   var results=document.getElementById('assign-results');
   var newForm=document.getElementById('assign-new-form');
@@ -268,14 +269,16 @@ searchDancers=async function(rehId, charId){
   if(!dancers.length){results.innerHTML='<p style="color:#999;font-size:0.85em;">未找到匹配舞见</p>';newForm.style.display='block';return;}
   newForm.style.display='block';
   results.innerHTML=dancers.map(function(d){
-    return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="selectDancerAssign('+rehId+','+charId+','+d.dancer_id+',\''+(d.cn_name||'').replace(/'/g,'')+'\')"><div><strong>'+d.cn_name+'</strong><br><small style="color:#999;">'+d.qq+' · '+(d.dance_group_name||'')+'</small></div><span class="tag" style="font-size:0.7em;">选择</span></div>';
+    return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="selectDancerAssign('+rehId+','+charId+','+d.dancer_id+',\''+(d.cn_name||'').replace(/'/g,'')+'\','+(oldPid||0)+')"><div><strong>'+d.cn_name+'</strong><br><small style="color:#999;">'+d.qq+' · '+(d.dance_group_name||'')+'</small></div><span class="tag" style="font-size:0.7em;">选择</span></div>';
   }).join('');
 };
 
-selectDancerAssign=async function(rehId, charId, dancerId, cn){
+selectDancerAssign=async function(rehId, charId, dancerId, cn, oldPid){
   if(!confirm('选择舞见 '+cn+'？'))return;
+  // 编辑模式：先删旧的
+  if(oldPid>0){await fetch(API+'/rehearsals/'+rehId+'/participants/'+oldPid,{method:'DELETE'});}
   var r=await fetch(API+'/rehearsals/'+rehId+'/participants',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dancer_id:dancerId,character_id:charId})});
-  if(!r.ok){alert('指派失败');return;}
+  if(!r.ok){var e=await r.json();alert(e.error||'指派失败');return;}
   closeModal('modal-sub');
   buildRehModal(rehId);try{loadPerfView();}catch(e){}
 };
@@ -293,14 +296,7 @@ createAndAssign=async function(rehId, charId){
 // 统一操作：addDancer / delDancer
 doRehAction=async function(action,rehId,cid,pid){
   if(action==='editDancer'){
-    var cn=prompt('修改CN（留空删除）：');if(cn===null)return;
-    if(cn===''){
-      if(!confirm('确定删除此舞见？'))return;
-      await fetch(API+'/rehearsals/'+rehId+'/participants/'+pid,{method:'DELETE'});
-    }else{
-      await fetch(API+'/rehearsals/'+rehId+'/participants/'+pid,{method:'DELETE'});
-      await fetch(API+'/rehearsals/'+rehId+'/participants/simple',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:cid,cn_name:cn})});
-    }
+    showAssignPopup(rehId, cid, pid); return;
   }else if(action==='addDancer'){
     showAssignPopup(rehId, cid); return;
   }else if(action==='delDancer'){
@@ -479,7 +475,9 @@ showDgDetail=async function(dgId){
 
 showDancerDetail=async function(dancerId){
   var dancers=await(await fetch(API+'/dancers')).json();var d=dancers.find(function(x){return x.dancer_id===dancerId;});if(!d)return;await loadDGCache();
-  var html='<div style="display:flex;gap:16px;align-items:flex-start;"><div style="width:60px;height:60px;border-radius:50%;background:var(--pink-light);display:flex;align-items:center;justify-content:center;font-size:1.5em;color:var(--pink);font-weight:700;">'+d.cn_name[0]+'</div><div style="flex:1;"><h2 style="color:var(--pink);margin-bottom:2px;">'+d.cn_name+'</h2><table style="font-size:0.85em;"><tr><td style="color:#999;width:60px;">舞团</td><td><span style="color:var(--blue);cursor:pointer;text-decoration:underline" onclick="closeModal(\'modal-char\');showDgDetail('+d.dance_group_id+')">'+(dgCache[d.dance_group_id]||'?')+'</span></td></tr>'+(d.qq?'<tr><td style="color:#999;">QQ</td><td>'+d.qq+'</td></tr>':'')+'</table></div></div><div style="margin-top:16px;text-align:right;"><button class="btn" onclick="closeModal(\'modal-char\')">关闭</button></div>';
+  var stats=[];try{var sr=await fetch(API+'/dancers/'+dancerId+'/stats');stats=await sr.json();}catch(e){}
+var rolesHtml='';if(stats.length){rolesHtml='<h4 style="margin-top:12px;color:var(--pink);">出演记录</h4><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">';stats.forEach(function(s){rolesHtml+='<div class="card" style="width:100px;padding:10px;text-align:center;cursor:pointer;border-top:3px solid '+(s.cheering_color||'#ccc')+';" onclick="closeModal(\'modal-char\');showCharDetail('+s.character_id+')"><strong style="font-size:0.85em;color:'+(s.cheering_color||'#666')+'">'+s.character_name+'</strong><br><small>'+s.play_count+'次</small></div>';});rolesHtml+='</div>';}
+var html='<div style="display:flex;gap:16px;align-items:flex-start;"><div style="width:60px;height:60px;border-radius:50%;background:var(--pink-light);display:flex;align-items:center;justify-content:center;font-size:1.5em;color:var(--pink);font-weight:700;">'+d.cn_name[0]+'</div><div style="flex:1;"><h2 style="color:var(--pink);margin-bottom:2px;">'+d.cn_name+'</h2><table style="font-size:0.85em;"><tr><td style="color:#999;width:60px;">舞团</td><td><span style="color:var(--blue);cursor:pointer;text-decoration:underline" onclick="closeModal(\'modal-char\');showDgDetail('+d.dance_group_id+')">'+(dgCache[d.dance_group_id]||'?')+'</span></td></tr>'+(d.qq?'<tr><td style="color:#999;">QQ</td><td>'+d.qq+'</td></tr>':'')+'</table></div></div>'+rolesHtml+'<div style="margin-top:16px;text-align:right;"><button class="btn" onclick="closeModal(\'modal-char\')">关闭</button></div>';
   document.getElementById('char-detail-content').innerHTML=html;
   document.getElementById('modal-char').classList.add('show');
 };

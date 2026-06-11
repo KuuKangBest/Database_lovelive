@@ -257,15 +257,15 @@
   .reh-part-card .rpc-char { font-weight:700; margin-bottom:2px; }
   .reh-part-card .rpc-dancer { font-size:0.85em; color:#888; }
   .reh-part-card .rpc-status { font-size:0.7em; color:#ccc; }
-  .del-btn { position:absolute; top:2px; right:2px; background:#fff; color:#ef5350; border:1px solid #ef5350; border-radius:4px; font-size:10px; cursor:pointer; padding:1px 5px; z-index:5; display:none; }
-  .reh-part-card:hover .del-btn { display:block; }
-  .add-btn { position:absolute; bottom:2px; left:50%; transform:translateX(-50%); background:var(--pink); color:#fff; border:none; border-radius:4px; font-size:10px; cursor:pointer; padding:2px 8px; z-index:5; display:none; white-space:nowrap; }
-  .reh-part-card:hover .add-btn { display:block; }
-  .reh-card-btns { position:absolute; top:2px; right:2px; display:none; gap:2px; z-index:5; }
+  .reh-card-btns { display:none; gap:4px; margin-top:4px; justify-content:center; }
   .reh-part-card:hover .reh-card-btns { display:flex; }
-  .reh-card-btns button { width:22px;height:22px;border:none;border-radius:4px;font-size:12px;cursor:pointer; }
-  .reh-card-btns button:first-child { background:#fff;color:var(--pink);border:1px solid var(--pink); }
-  .reh-card-btns button:last-child { background:#fff;color:#ef5350;border:1px solid #ef5350; }
+  .reh-card-btns span { font-size:10px; cursor:pointer; padding:2px 8px; border-radius:4px; white-space:nowrap; }
+  .reh-card-btns .edit-link { color:var(--pink); border:1px solid var(--pink-light); }
+  .reh-card-btns .edit-link:hover { background:var(--pink-light); }
+  .reh-card-btns .del-link { color:#ef5350; border:1px solid #ffcdd2; }
+  .reh-card-btns .del-link:hover { background:#ffcdd2; }
+  .add-btn { display:none; margin-top:4px; background:var(--pink); color:#fff; border:none; border-radius:4px; font-size:10px; cursor:pointer; padding:2px 8px; white-space:nowrap; width:100%; text-align:center; }
+  .reh-part-card:hover .add-btn { display:block; }
 
   .reh-calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; max-width:380px; margin:0 auto 16px; text-align:center; font-size:0.9em; }
   .reh-calendar .cal-hd { color:var(--pink); font-weight:700; padding:6px 2px; font-size:0.75em; text-transform:uppercase; letter-spacing:0.5px; }
