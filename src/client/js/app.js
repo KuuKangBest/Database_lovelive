@@ -488,12 +488,14 @@ loadDancerList=async function(){
   await Promise.all(dancers.map(async function(d){
     try{var sr=await fetch(API+'/dancers/'+d.dancer_id+'/stats');statsMap[d.dancer_id]=await sr.json();}catch(e){}
   }));
-  le.innerHTML=dancers.map(function(d){
+  le.innerHTML='<div class="grid">'+dancers.map(function(d){
     var stats=statsMap[d.dancer_id]||[];
     var topColor=stats.length?stats[0].cheering_color||'#ff6b9d':'#eee';
+    var topChar=stats.length?stats[0].character_name:'';
     var qqBadge=d.qq?'<span class="tag" style="font-size:0.65em;">QQ:'+d.qq+'</span>':'';
-    return'<div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-left:4px solid '+topColor+'" onclick="showDancerDetail('+d.dancer_id+')"><div><strong>'+d.cn_name+'</strong> '+qqBadge+'<br><small style="color:#999;">'+(dgCache[d.dance_group_id]||'?')+'</small></div><button class="btn btn-danger btn-sm" style="padding:2px 10px;font-size:0.7em;" onclick="event.stopPropagation();deleteDancer('+d.dancer_id+')">×</button></div>';
-  }).join('');
+    var bg=stats.length?'linear-gradient(135deg,'+topColor+'18,'+topColor+'08)':'#fff';
+    return'<div class="card" style="border:2px solid '+topColor+'" onclick="showDancerDetail('+d.dancer_id+')"><h3>'+d.cn_name+'</h3><span class="tag">'+(dgCache[d.dance_group_id]||'?')+'</span>'+qqBadge+(topChar?'<br><small style="color:#999;">偏好: '+topChar+'</small>':'')+'<button class="btn btn-danger btn-sm" style="position:absolute;top:10px;right:10px;padding:2px 10px;font-size:0.7em;" onclick="event.stopPropagation();deleteDancer('+d.dancer_id+')">×</button></div>';
+  }).join('')+'</div>';
 };
 
 addDanceGroup=async function(){var n=document.getElementById('dg-new-name').value.trim();if(!n)return;await fetch(API+'/dance-groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});document.getElementById('dg-new-name').value='';loadDgMgmt();};
