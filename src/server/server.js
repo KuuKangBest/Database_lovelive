@@ -2,6 +2,7 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 const config = require('../../config');
+const semantic = require('./semantic-search');
 
 const app = express();
 app.use(cors());
@@ -86,6 +87,15 @@ app.get('/api/characters', async (req, res) => {
   res.json(rows);
 });
 
+// 语义向量搜索角色（TF-IDF + Cosine Similarity）
+app.get('/api/characters/semantic', async (req, res) => {
+  const { q, top } = req.query;
+  if (!q) return res.json([]);
+  var scored = semantic.search(q.trim(), parseInt(top) || 20, 0.01);
+  var rows = await semantic.getCharactersByIds(pool, scored);
+  res.json(rows);
+});
+
 app.get('/api/characters/:id', async (req, res) => {
   const [[row]] = await pool.query(
     `SELECT c.*, g.name AS group_name, cv.name AS cv_name, cv.birth_date
@@ -101,7 +111,8 @@ app.get('/api/characters/:id', async (req, res) => {
      JOIN rehearsal r ON rp.rehearsal_id = r.rehearsal_id
      JOIN dance_group dg ON r.dance_group_id = dg.dance_group_id
      JOIN dancer d ON rp.dancer_id = d.dancer_id
-     WHERE rp.character_id = ? ORDER BY r.rehearsal_date DESC LIMIT 20`,
+     WHERE rp.character_id = ? AND (r.status IS NULL OR r.status != 'cancelled')
+     ORDER BY r.rehearsal_date DESC LIMIT 20`,
     [req.params.id]);
   res.json({ ...row, rehearsals });
 });
@@ -195,7 +206,8 @@ app.get('/api/dancers/by-character', async (req, res) => {
      LEFT JOIN dance_group dg ON d.dance_group_id = dg.dance_group_id
      JOIN rehearsal_participation rp ON d.dancer_id = rp.dancer_id
      JOIN \`character\` c ON rp.character_id = c.character_id
-     WHERE (`+likes+`) ORDER BY d.cn_name`,
+     JOIN rehearsal r ON rp.rehearsal_id = r.rehearsal_id
+     WHERE (`+likes+`) AND (r.status IS NULL OR r.status != 'cancelled') ORDER BY d.cn_name`,
     params);
   res.json(rows);
 });
@@ -224,8 +236,11 @@ app.post('/api/dancers', async (req, res) => {
 app.get('/api/dancers/:id/stats', async (req, res) => {
   const [rows] = await pool.query(
     `SELECT c.name AS character_name, c.character_id, c.cheering_color, COUNT(*) AS play_count
-     FROM rehearsal_participation rp JOIN \`character\` c ON rp.character_id=c.character_id
-     WHERE rp.dancer_id=? GROUP BY c.character_id ORDER BY play_count DESC LIMIT 10`,
+     FROM rehearsal_participation rp
+     JOIN \`character\` c ON rp.character_id=c.character_id
+     JOIN rehearsal r ON rp.rehearsal_id=r.rehearsal_id
+     WHERE rp.dancer_id=? AND (r.status IS NULL OR r.status != 'cancelled')
+     GROUP BY c.character_id ORDER BY play_count DESC LIMIT 10`,
     [req.params.id]);
   res.json(rows);
 });
@@ -442,6 +457,8 @@ app.listen(port, async () => {
     console.log('');
     console.log(`  MySQL : ${config.db.host} / ${config.db.database}`);
     console.log(`  数据  : ${stats[0].p} 企划 · ${stats[0].g} 团体 · ${stats[0].c} 角色 · ${stats[0].v} 声优`);
+    var si = await semantic.rebuild(pool);
+    console.log(`  语义  : ${si.docCount} 文档 · ${si.termCount} 词项 (TF-IDF + Cosine)`);
     console.log(`  前端  : http://localhost:${port}`);
     console.log(`  API   : http://localhost:${port}/api`);
     console.log('');

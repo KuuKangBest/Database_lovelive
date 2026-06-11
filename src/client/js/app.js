@@ -105,27 +105,63 @@ async function loadCharacters(){
     selectedGroups=[String(pageFilter.gid)]; pageFilter=null;
     document.querySelectorAll('.group-mini-card').forEach(function(c){c.classList.toggle('active',c.dataset.gid===selectedGroups[0]);});
   }
-  var search = document.getElementById('char-search').value;
+  var search = document.getElementById('char-search').value.trim();
   var ageRange = document.getElementById('char-filter-age').value;
-  var url = API+'/characters?';
-  if (selectedGroups.length===1) url+='group_id='+selectedGroups[0]+'&';
-  if (search) url+='search='+encodeURIComponent(search)+'&';
-  if (ageRange){var parts=ageRange.split('-');url+='cv_age_min='+parts[0]+'&cv_age_max='+parts[1]+'&';}
-  var r = await fetch(url); var chars = await r.json();
-  if (selectedGroups.length>=1){ chars=chars.filter(function(c){return selectedGroups.indexOf(String(c.group_id))>=0;}); }
-  else if (cardsWrap.children.length>0) {
-    // 已有卡片但无选中 → 显示空状态
-    document.getElementById('char-grid').innerHTML='<p style="color:#999;text-align:center;padding:40px;">未选择团体，点击上方卡片筛选</p>'; return;
+  var chars;
+  var isSemantic = false;
+  if (search) {
+    // 语义向量搜索
+    isSemantic = true;
+    chars = await(await fetch(API+'/characters/semantic?q='+encodeURIComponent(search))).json();
+    // 客户端叠加团体筛选
+    if (selectedGroups.length>=1) {
+      chars = chars.filter(function(c){return selectedGroups.indexOf(String(c.group_id))>=0;});
+    }
+    // 声优年龄筛选
+    if (ageRange) {
+      var parts=ageRange.split('-');
+      var minAge=parseInt(parts[0]), maxAge=parseInt(parts[1]);
+      chars = chars.filter(function(c){
+        if(!c.birth_date)return false;
+        var age=Math.floor((new Date()-new Date(c.birth_date))/31557600000);
+        return age>=minAge&&age<=maxAge;
+      });
+    }
+  } else {
+    var url = API+'/characters?';
+    if (selectedGroups.length===1) url+='group_id='+selectedGroups[0]+'&';
+    if (ageRange){var parts=ageRange.split('-');url+='cv_age_min='+parts[0]+'&cv_age_max='+parts[1]+'&';}
+    var r = await fetch(url); chars = await r.json();
+    if (selectedGroups.length>=1){ chars=chars.filter(function(c){return selectedGroups.indexOf(String(c.group_id))>=0;}); }
+    else if (cardsWrap.children.length>0) {
+      document.getElementById('char-grid').innerHTML='<p style="color:#999;text-align:center;padding:40px;">未选择团体，点击上方卡片筛选</p>'; return;
+    }
   }
 
-  var grp={}; chars.forEach(function(c){var gn=c.group_name||'其他'; if(!grp[gn])grp[gn]=[]; grp[gn].push(c);});
-  document.getElementById('char-grid').innerHTML = Object.entries(grp).map(function(e){
-    return '<div style="grid-column:1/-1;margin-top:12px;"><h3 style="color:var(--pink);padding-bottom:6px;border-bottom:2px solid var(--pink-light);">'+e[0]+' <span style="font-weight:400;font-size:0.8em;color:#999;">('+e[1].length+'人)</span></h3></div>'+e[1].map(function(c){
-      var age = c.birth_date?Math.floor((new Date()-new Date(c.birth_date))/31557600000):null;
-      var cheerDot = c.cheering_color?' <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:'+c.cheering_color+';border:1px solid #ddd;vertical-align:middle;"></span>':'';
-      return '<div class="card" onclick="showCharDetail('+c.character_id+')"><div class="card-render-bg" style="background-image:url(images/chars/char-'+c.character_id+'.png)"></div><h3>'+c.name+cheerDot+'</h3><span class="tag blue">'+(c.birthday||'?')+' · '+(c.blood_type||'?')+'型 · '+(c.height||'?')+'cm</span><div class="cv">CV: '+(c.cv_name||'?')+(age?' ('+age+'岁)':'')+'</div>'+(c.hobby?'<div style="margin-top:6px;font-size:0.82em;color:#888;">'+c.hobby+'</div>':'')+'<div style="margin-top:4px;font-size:0.75em;color:var(--pink);">点击查看详情 →</div></div>';
+  if (isSemantic && !chars.length) {
+    document.getElementById('char-grid').innerHTML='<p style="color:#999;text-align:center;padding:40px;">没有匹配的角色，试试其他关键词</p>'; return;
+  }
+  if (isSemantic) {
+    // 语义搜索结果：按相关性排名平铺，显示相似度
+    document.getElementById('char-grid').innerHTML =
+      '<div style="grid-column:1/-1;margin-bottom:12px;"><h3 style="color:var(--pink);">🔍 语义搜索 "'+search+'" <span style="font-weight:400;font-size:0.8em;color:#999;">('+chars.length+'个结果，按相关性排序)</span></h3></div>'+
+      chars.map(function(c){
+        var age = c.birth_date?Math.floor((new Date()-new Date(c.birth_date))/31557600000):null;
+        var cheerDot = c.cheering_color?' <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:'+c.cheering_color+';border:1px solid #ddd;vertical-align:middle;"></span>':'';
+        var scorePct = c.similarity ? Math.round(c.similarity*100) : 0;
+        var scoreColor = scorePct>=70?'#4caf50':scorePct>=40?'#ff9800':'#999';
+        return '<div class="card" onclick="showCharDetail('+c.character_id+')"><div class="card-render-bg" style="background-image:url(images/chars/char-'+c.character_id+'.png)"></div><h3>'+c.name+cheerDot+'</h3><span class="tag" style="background:'+scoreColor+';color:#fff;">相关度 '+scorePct+'%</span><span class="tag blue">'+(c.birthday||'?')+' · '+(c.blood_type||'?')+'型 · '+(c.height||'?')+'cm</span><div class="cv">CV: '+(c.cv_name||'?')+(age?' ('+age+'岁)':'')+' · '+(c.group_name||'')+'</div>'+(c.hobby?'<div style="margin-top:6px;font-size:0.82em;color:#888;">'+c.hobby+'</div>':'')+'<div style="margin-top:4px;font-size:0.75em;color:var(--pink);">点击查看详情 →</div></div>';
+      }).join('');
+  } else {
+    var grp={}; chars.forEach(function(c){var gn=c.group_name||'其他'; if(!grp[gn])grp[gn]=[]; grp[gn].push(c);});
+    document.getElementById('char-grid').innerHTML = Object.entries(grp).map(function(e){
+      return '<div style="grid-column:1/-1;margin-top:12px;"><h3 style="color:var(--pink);padding-bottom:6px;border-bottom:2px solid var(--pink-light);">'+e[0]+' <span style="font-weight:400;font-size:0.8em;color:#999;">('+e[1].length+'人)</span></h3></div>'+e[1].map(function(c){
+        var age = c.birth_date?Math.floor((new Date()-new Date(c.birth_date))/31557600000):null;
+        var cheerDot = c.cheering_color?' <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:'+c.cheering_color+';border:1px solid #ddd;vertical-align:middle;"></span>':'';
+        return '<div class="card" onclick="showCharDetail('+c.character_id+')"><div class="card-render-bg" style="background-image:url(images/chars/char-'+c.character_id+'.png)"></div><h3>'+c.name+cheerDot+'</h3><span class="tag blue">'+(c.birthday||'?')+' · '+(c.blood_type||'?')+'型 · '+(c.height||'?')+'cm</span><div class="cv">CV: '+(c.cv_name||'?')+(age?' ('+age+'岁)':'')+'</div>'+(c.hobby?'<div style="margin-top:6px;font-size:0.82em;color:#888;">'+c.hobby+'</div>':'')+'<div style="margin-top:4px;font-size:0.75em;color:var(--pink);">点击查看详情 →</div></div>';
+      }).join('');
     }).join('');
-  }).join('');
+  }
 }
 
 async function showCharDetail(charId){
@@ -267,6 +303,7 @@ async function buildRehModal(rehId){
           ?'<button class="btn btn-sm" style="background:#66bb6a;color:#fff;" onclick="toggleRehStatus('+rehId+',\'active\')">恢复排练</button>'
           :'<button class="btn btn-sm btn-danger" onclick="toggleRehStatus('+rehId+',\'cancelled\')">取消排练</button>'
         )+
+        '<button class="btn btn-sm" style="background:#e53935;color:#fff;" onclick="deleteRehearsal('+rehId+')">删除排练</button>'+
         '<button class="btn btn-sm" onclick="closeModal(\'modal-char\')">关闭</button></div>';
   }catch(e){el.innerHTML='<p style="color:#e53935;">加载失败: '+e.message+'</p>';}
 }
@@ -277,6 +314,16 @@ toggleRehStatus=async function(rehId,newStatus){
   var res=await fetch(API+'/rehearsals/'+rehId+'/status',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:newStatus})});
   if(!res.ok){alert('操作失败');return;}
   buildRehModal(rehId);
+  try{loadPerfView();}catch(e){}
+  try{loadHome();}catch(e){}
+};
+
+// 真正删除排练（级联清除参与记录）
+deleteRehearsal=async function(rehId){
+  if(!confirm('确定永久删除此排练？\n\n⚠ 这将同时删除所有参与记录，且不可恢复。\n如果只想标记为取消，请使用"取消排练"按钮。'))return;
+  var res=await fetch(API+'/rehearsals/'+rehId,{method:'DELETE'});
+  if(!res.ok){alert('删除失败');return;}
+  closeModal('modal-char');
   try{loadPerfView();}catch(e){}
   try{loadHome();}catch(e){}
 };
