@@ -15,7 +15,7 @@ function showPage(name, filterVal) {
   document.querySelectorAll('.nav-links button').forEach(function(b){if(b.getAttribute('data-page')===name)b.classList.add('active');});
   if (name==='projects') loadProjects();
   if (name==='groups') loadGroups();
-  if (name==='characters'){ if(!filterVal) selectedGroups=[]; loadCharacters(); }
+  if (name==='characters'){ if(filterVal){ loadCharacters(); } else { selectedGroups=[]; loadCharacters(); setTimeout(selectAllGroups,100); } }
   if (name==='rehearsal') { renderCalendar(); loadPerfView(); }
   if (name==='dancegroups') loadDgMgmt();
   if (name==='dancers') loadDancerList();
@@ -80,6 +80,11 @@ selectAllGroups = function(){
   selectedGroups = Array.from(document.querySelectorAll('.group-mini-card')).map(function(c){return c.dataset.gid;});
   loadCharacters();
 };
+deselectAllGroups = function(){
+  document.querySelectorAll('.group-mini-card').forEach(function(c){c.classList.remove('active');});
+  selectedGroups = [];
+  loadCharacters();
+};
 
 async function loadCharacters(){
   var cardsWrap = document.getElementById('group-mini-cards');
@@ -102,7 +107,10 @@ async function loadCharacters(){
   if (ageRange){var parts=ageRange.split('-');url+='cv_age_min='+parts[0]+'&cv_age_max='+parts[1]+'&';}
   var r = await fetch(url); var chars = await r.json();
   if (selectedGroups.length>=1){ chars=chars.filter(function(c){return selectedGroups.indexOf(String(c.group_id))>=0;}); }
-  else { document.querySelectorAll('.group-mini-card').forEach(function(c){c.classList.add('active');}); }
+  else if (cardsWrap.children.length>0) {
+    // 已有卡片但无选中 → 显示空状态
+    document.getElementById('char-grid').innerHTML='<p style="color:#999;text-align:center;padding:40px;">未选择团体，点击上方卡片筛选</p>'; return;
+  }
 
   var grp={}; chars.forEach(function(c){var gn=c.group_name||'其他'; if(!grp[gn])grp[gn]=[]; grp[gn].push(c);});
   document.getElementById('char-grid').innerHTML = Object.entries(grp).map(function(e){
