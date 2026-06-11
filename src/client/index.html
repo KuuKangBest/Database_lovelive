@@ -15,7 +15,9 @@
     <button data-page="projects" onclick="showPage('projects')">企划</button>
     <button data-page="groups" onclick="showPage('groups')">动漫团</button>
     <button data-page="characters" onclick="showPage('characters')">角色</button>
-    <button data-page="rehearsal" onclick="showPage('rehearsal')">排练管理</button>
+    <button data-page="dancegroups" onclick="showPage('dancegroups')">舞团</button>
+    <button data-page="dancers" onclick="showPage('dancers')">舞见</button>
+    <button data-page="rehearsal" onclick="showPage('rehearsal')">排练</button>
   </div>
 </nav>
 
@@ -35,6 +37,14 @@
       <div class="stat-card" onclick="showPage('characters')">
         <div class="card-bg" style="background-image:url(images/ayumu.svg)"></div>
         <div class="num" id="stat-chars">-</div><div class="lbl">角色</div>
+      </div>
+      <div class="stat-card" onclick="showPage('dancegroups')">
+        <div class="card-bg" style="background-image:url(images/kanon.svg)"></div>
+        <div class="num" id="stat-dgs">-</div><div class="lbl">舞团</div>
+      </div>
+      <div class="stat-card" onclick="showPage('dancers')">
+        <div class="card-bg" style="background-image:url(images/kanon.svg)"></div>
+        <div class="num" id="stat-dancers">-</div><div class="lbl">舞见</div>
       </div>
       <div class="stat-card" onclick="showPage('rehearsal')">
         <div class="card-bg" style="background-image:url(images/kanon.svg)"></div>
@@ -99,6 +109,27 @@
       </div>
     </div>
     <div id="rehearsal-list"></div>
+  </div>
+
+  <!-- 舞团 -->
+  <div id="dancegroups" class="page">
+    <button class="back-home" onclick="showPage('home')">&#9664; 回到首页</button>
+    <h2 style="color:var(--pink);margin-bottom:16px;">舞团</h2>
+    <div class="grid" id="dg-mgmt-list"></div>
+  </div>
+  <!-- 舞见 -->
+  <div id="dancers" class="page">
+    <button class="back-home" onclick="showPage('home')">&#9664; 回到首页</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+      <h2 style="color:var(--pink);">舞见</h2>
+      <div style="display:flex;gap:6px;">
+        <select id="dancer-dg-filter" onchange="loadDancerList()" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;"></select>
+        <input type="text" id="dancer-new-cn" placeholder="CN名" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;width:100px;">
+        <input type="text" id="dancer-new-qq" placeholder="QQ" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;width:100px;">
+        <button class="btn btn-primary btn-sm" onclick="addDancer()">+ 新建</button>
+      </div>
+    </div>
+    <div id="dancer-mgmt-list"></div>
   </div>
 
 </div>
