@@ -15,7 +15,7 @@ function showPage(name, filterVal) {
   document.querySelectorAll('.nav-links button').forEach(function(b){if(b.getAttribute('data-page')===name)b.classList.add('active');});
   if (name==='projects') loadProjects();
   if (name==='groups') loadGroups();
-  if (name==='characters'){ if(filterVal){ loadCharacters(); } else { selectedGroups=[]; loadCharacters(); setTimeout(selectAllGroups,100); } }
+  if (name==='characters'){ document.getElementById('char-filter-age').value=''; if(filterVal){ loadCharacters(); } else { selectedGroups=[]; loadCharacters(); setTimeout(selectAllGroups,100); } }
   if (name==='rehearsal') { renderCalendar(); loadPerfView(); }
   if (name==='dancegroups') { dgCache={}; loadDgMgmt(); }
   if (name==='dancers') { dgCache={}; var dsf=document.getElementById('dancer-dg-filter');if(dsf)dsf.innerHTML=''; loadDancerList(); buildCharBiasCards(); }
@@ -434,6 +434,7 @@ createAndAssign=async function(rehId, charId){
   var cn=document.getElementById('assign-new-cn').value.trim();
   var qq=document.getElementById('assign-new-qq').value.trim();
   if(!cn||!qq){alert('CN和QQ均为必填');return;}
+	if(!/^\d+$/.test(qq)){alert('QQ号码必须是数字');return;}
   var r=await fetch(API+'/rehearsals/'+rehId+'/participants/simple',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:charId,cn_name:cn,qq:qq})});
   if(!r.ok){alert('指派失败');return;}
   closeModal('modal-sub');
@@ -796,12 +797,22 @@ loadDancerList=async function(){
   await Promise.all(dancers.map(async function(d){
     try{var sr=await fetch(API+'/dancers/'+d.dancer_id+'/stats');statsMap[d.dancer_id]=await sr.json();}catch(e){}
   }));
-  // 按主舞团分组（多团成员显示在主团下，并带多团标识）
-  var byDg={};
+  // 按所有舞团分组（主团 + 关联团），同一舞见可出现在多个团下
+  var byDg={}, seen={};
   dancers.forEach(function(d){
-    var key=d.dance_group_id?String(d.dance_group_id):'__none__';
-    if(!byDg[key])byDg[key]={name:d.dance_group_id?dgCache[d.dance_group_id]||'舞团#'+d.dance_group_id:'未分组',dgId:d.dance_group_id,dancers:[]};
-    byDg[key].dancers.push(d);
+    var allGroups=d.groups&&d.groups.length?d.groups:[];
+    if(!allGroups.length){
+      // 无任何组
+      var key='__none__';
+      if(!byDg[key])byDg[key]={name:'未分组',dgId:null,dancers:[]};
+      if(!seen[d.dancer_id+'_'+key]){byDg[key].dancers.push(d);seen[d.dancer_id+'_'+key]=true;}
+    }else{
+      allGroups.forEach(function(g){
+        var key=String(g.dance_group_id);
+        if(!byDg[key])byDg[key]={name:g.dance_group_name||dgCache[g.dance_group_id]||'舞团#'+g.dance_group_id,dgId:g.dance_group_id,dancers:[]};
+        if(!seen[d.dancer_id+'_'+key]){byDg[key].dancers.push(d);seen[d.dancer_id+'_'+key]=true;}
+      });
+    }
   });
   var dgKeys=Object.keys(byDg).sort(function(a,b){return a==='__none__'?1:b==='__none__'?-1:parseInt(a)-parseInt(b);});
   le.innerHTML=dgKeys.map(function(key){
@@ -866,6 +877,7 @@ submitDancer=async function(e){
   var editId=document.getElementById('f-dancer-edit-id').value;
   if(!cn){alert('请输入CN名');return;}
   if(!qq){alert('请输入QQ号');return;}
+	if(!/^\d+$/.test(qq)){alert('QQ号码必须是数字');return;}
   if(editId){
     // 编辑模式
     var res=await fetch(API+'/dancers/'+editId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({cn_name:cn,qq:qq,dance_group_id:dgId?parseInt(dgId):null})});
@@ -881,7 +893,7 @@ submitDancer=async function(e){
 };
 // 将舞见从指定舞团中移除（不删人，保留排练记录）
 removeDancerFromGroup=async function(did, dgId, cn, hasMultiple){
-  var label = hasMultiple ? '确定将 '+cn+' 从当前舞团中移除？\n（保留其排练记录和其他舞团归属）' : '⚠ '+cn+' 只在本团，将从所有舞团移除。\n是否彻底删除此舞见？（将清除其所有排练参与记录）';
+  var label = hasMultiple ? '确定将 '+cn+' 从当前舞团中移除？\n\n⚠ 这将同时：\n  • 删除她在此舞团所有排练的参与记录\n  • 保留其他舞团的排练和归属' : '⚠ '+cn+' 只在本团。\n\n彻底删除将清除：\n  • 所有排练参与记录\n  • 舞见信息\n\n确定删除？';
   if(!confirm(label))return;
   if(!hasMultiple){
     // 只在一个团 → 彻底删除
@@ -1013,6 +1025,7 @@ async function createAndAssignReh(){
   var cn=document.getElementById('reh-assign-new-cn').value.trim();
   var qq=document.getElementById('reh-assign-new-qq').value.trim();
   if(!cn||!qq){alert('CN和QQ均为必填');return;}
+	if(!/^\d+$/.test(qq)){alert('QQ号码必须是数字');return;}
   var res=await fetch(API+'/dancers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cn_name:cn,qq:qq,dance_group_id:null})});
   if(!res.ok){alert('创建失败');return;}
   var dancer=await res.json();

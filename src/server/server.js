@@ -333,6 +333,7 @@ app.get('/api/dancers', async (req, res) => {
 app.post('/api/dancers', async (req, res) => {
   const { dance_group_id, cn_name, qq, contact_info } = req.body;
   if (!cn_name || !cn_name.trim()) return res.status(400).json({ error: 'CN名不能为空' });
+  if (qq && !/^\d+$/.test(qq)) return res.status(400).json({ error: 'QQ号码必须是数字' });
   if (qq) {
     const [dup] = await pool.query('SELECT * FROM dancer WHERE qq=? AND cn_name=?', [qq, cn_name.trim()]);
     if (dup.length) {
@@ -353,6 +354,7 @@ app.put('/api/dancers/:id', async (req, res) => {
   const { dance_group_id, cn_name, qq, contact_info } = req.body;
   const [[d]] = await pool.query('SELECT * FROM dancer WHERE dancer_id=?', [req.params.id]);
   if (!d) return res.status(404).json({ error: '舞见不存在' });
+  if (qq !== undefined && qq !== null && qq !== '' && !/^\d+$/.test(qq)) return res.status(400).json({ error: 'QQ号码必须是数字' });
   const oldDgId = d.dance_group_id;
   const newDgId = dance_group_id !== undefined ? (dance_group_id || null) : oldDgId;
   // 如果主团变化，保留旧团在关联表中
@@ -399,19 +401,54 @@ app.get('/api/dancers/:id/rehearsals', async (req, res) => {
   res.json(rows);
 });
 
+// 舞见所属的全部舞团（主团 + 关联团）
+app.get('/api/dancers/:id/groups', async (req, res) => {
+  const did = parseInt(req.params.id);
+  // 主团
+  const [[d]] = await pool.query('SELECT dancer_id, dance_group_id FROM dancer WHERE dancer_id=?', [did]);
+  if (!d) return res.status(404).json({ error: '未找到' });
+  const groups = [];
+  if (d.dance_group_id) {
+    const [[dg]] = await pool.query('SELECT dance_group_id, name FROM dance_group WHERE dance_group_id=?', [d.dance_group_id]);
+    if (dg) groups.push({ dance_group_id: dg.dance_group_id, name: dg.name, is_primary: true });
+  }
+  // 关联团
+  const [mems] = await pool.query(
+    'SELECT mg.dance_group_id, dg.name FROM dancer_group_membership mg JOIN dance_group dg ON mg.dance_group_id=dg.dance_group_id WHERE mg.dancer_id=?',
+    [did]);
+  mems.forEach(function(m) {
+    if (!groups.find(function(g) { return g.dance_group_id === m.dance_group_id; })) {
+      groups.push({ dance_group_id: m.dance_group_id, name: m.name, is_primary: false });
+    }
+  });
+  res.json(groups);
+});
+
 // 将舞见从指定舞团中移除（保留排练记录）
 app.delete('/api/dancers/:id/groups/:gid', async (req, res) => {
   const did = parseInt(req.params.id);
   const gid = parseInt(req.params.gid);
-  // 从关联表删除
-  await pool.query('DELETE FROM dancer_group_membership WHERE dancer_id=? AND dance_group_id=?', [did, gid]);
-  // 如果主团是这个，切换到另一个团或置空
-  const [[d]] = await pool.query('SELECT dance_group_id FROM dancer WHERE dancer_id=?', [did]);
-  if (d && d.dance_group_id === gid) {
-    const [mems] = await pool.query('SELECT dance_group_id FROM dancer_group_membership WHERE dancer_id=? LIMIT 1', [did]);
-    await pool.query('UPDATE dancer SET dance_group_id=? WHERE dancer_id=?', [mems.length ? mems[0].dance_group_id : null, did]);
-  }
-  res.json({success:true});
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    // 级联删除该舞见在此舞团所有排练中的参与记录
+    await conn.query(
+      'DELETE rp FROM rehearsal_participation rp JOIN rehearsal r ON rp.rehearsal_id=r.rehearsal_id WHERE rp.dancer_id=? AND r.dance_group_id=?',
+      [did, gid]);
+    // 从关联表删除
+    await conn.query('DELETE FROM dancer_group_membership WHERE dancer_id=? AND dance_group_id=?', [did, gid]);
+    // 如果主团是这个，切换到另一个团或置空
+    const [[d]] = await conn.query('SELECT dance_group_id FROM dancer WHERE dancer_id=?', [did]);
+    if (d && d.dance_group_id === gid) {
+      const [mems] = await conn.query('SELECT dance_group_id FROM dancer_group_membership WHERE dancer_id=? LIMIT 1', [did]);
+      await conn.query('UPDATE dancer SET dance_group_id=? WHERE dancer_id=?', [mems.length ? mems[0].dance_group_id : null, did]);
+    }
+    await conn.commit();
+    res.json({success:true});
+  } catch(e) {
+    await conn.rollback();
+    res.status(500).json({error:e.message});
+  } finally { conn.release(); }
 });
 
 app.delete('/api/dancers/:id', async (req, res) => {
@@ -565,6 +602,7 @@ app.post('/api/rehearsals/:id/participants/simple', async (req, res) => {
   try {
     const { character_id, cn_name, qq } = req.body;
     if (!character_id || (!cn_name && !qq)) return res.status(400).json({error:'缺少参数'});
+    if (qq && !/^\d+$/.test(qq)) return res.status(400).json({error:'QQ号码必须是数字'});
     const [[reh]] = await pool.query('SELECT dance_group_id FROM rehearsal WHERE rehearsal_id=?', [req.params.id]);
     if (!reh) return res.status(404).json({error:'排练未找到'});
     var dancerId;
