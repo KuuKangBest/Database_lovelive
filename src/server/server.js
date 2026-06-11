@@ -180,11 +180,16 @@ app.get('/api/dancers', async (req, res) => {
 });
 
 app.post('/api/dancers', async (req, res) => {
-  const { dance_group_id, cn_name, contact_info } = req.body;
+  const { dance_group_id, cn_name, qq, contact_info } = req.body;
+  // QQ号优先搜索
+  if (qq) {
+    const [existing] = await pool.query('SELECT * FROM dancer WHERE qq=?', [qq]);
+    if (existing.length) return res.json(existing[0]);
+  }
   const [result] = await pool.query(
-    'INSERT INTO dancer (dance_group_id, cn_name, contact_info) VALUES (?, ?, ?)',
-    [dance_group_id, cn_name, contact_info || null]);
-  res.json({ dancer_id: result.insertId });
+    'INSERT INTO dancer (dance_group_id, cn_name, qq, contact_info) VALUES (?, ?, ?, ?)',
+    [dance_group_id, cn_name, qq||null, contact_info||null]);
+  res.json({ dancer_id: result.insertId, cn_name: cn_name, qq: qq });
 });
 
 // ========== 排练 API ==========
@@ -264,6 +269,36 @@ app.delete('/api/rehearsals/:id/chars/:charId', async (req, res) => {
 app.delete('/api/rehearsals/:id', async (req, res) => {
   await pool.query('DELETE FROM rehearsal WHERE rehearsal_id = ?', [req.params.id]);
   res.json({ success: true });
+});
+
+// 简化版：传 character_id + (cn_name 或 qq)，优先QQ搜索，自动创建舞见
+app.post('/api/rehearsals/:id/participants/simple', async (req, res) => {
+  try {
+    const { character_id, cn_name, qq } = req.body;
+    if (!character_id || (!cn_name && !qq)) return res.status(400).json({error:'缺少参数'});
+    const [[reh]] = await pool.query('SELECT dance_group_id FROM rehearsal WHERE rehearsal_id=?', [req.params.id]);
+    if (!reh) return res.status(404).json({error:'排练未找到'});
+    let dancerId;
+    // 优先QQ搜索
+    if (qq) {
+      const [byQQ] = await pool.query('SELECT dancer_id FROM dancer WHERE qq=?', [qq]);
+      if (byQQ.length) { dancerId = byQQ[0].dancer_id; }
+    }
+    // 其次按CN搜索同舞团
+    if (!dancerId && cn_name) {
+      const [byCN] = await pool.query('SELECT dancer_id FROM dancer WHERE dance_group_id=? AND cn_name=?', [reh.dance_group_id, cn_name]);
+      if (byCN.length) { dancerId = byCN[0].dancer_id; }
+    }
+    // 新建
+    if (!dancerId) {
+      const [result] = await pool.query('INSERT INTO dancer (dance_group_id, cn_name, qq) VALUES (?, ?, ?)',
+        [reh.dance_group_id, cn_name||null, qq||null]);
+      dancerId = result.insertId;
+    }
+    await pool.query('INSERT INTO rehearsal_participation (rehearsal_id, dancer_id, character_id) VALUES (?, ?, ?)',
+      [req.params.id, dancerId, character_id]);
+    res.json({success:true, dancer_id:dancerId});
+  } catch(e) { res.status(500).json({error:e.message}); }
 });
 
 app.post('/api/rehearsals/:id/participants', async (req, res) => {

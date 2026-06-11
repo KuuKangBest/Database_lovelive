@@ -202,40 +202,90 @@ loadPerfView = async function(){
   document.getElementById('rehearsal-list').innerHTML=html||'<p style="color:#999;">暂无排练</p>';
 };
 
-showRehearsalDetail = async function(rehId){await loadDGCache();renderRehDetail(rehId);};
-async function renderRehDetail(rehId){
-  var rr=await fetch(API+'/rehearsals/'+rehId);var reh=await rr.json();
-  var parts=reh.participants||[];
-  var dgRes=await fetch(API+'/dance-groups/'+reh.dance_group_id);var dg=await dgRes.json();
-  var excluded=reh.excluded_chars?reh.excluded_chars.split(',').map(Number):[];
-  var extra=reh.extra_chars?reh.extra_chars.split(',').map(Number):[];
-  var allChars=[];
-  if(dg.anime_group_id){
-    var grRes=await fetch(API+'/groups/'+dg.anime_group_id);var group=await grRes.json();
-    allChars=(group.members||[]).filter(function(c){return excluded.indexOf(c.character_id)===-1;});
-  }
-  // 跨团新增角色
-  if(extra.length){
-    var cr=await fetch(API+'/characters');var extraChars=await cr.json();
-    extraChars=extraChars.filter(function(c){return extra.indexOf(c.character_id)>=0;});
-    allChars=allChars.concat(extraChars);
-  }
-  var partMap={};parts.forEach(function(p){partMap[p.character_id]={cn:p.cn_name,pid:p.participation_id};});
-  var filled=Object.keys(partMap).length;
-  var cards=allChars.map(function(c){
-    var p=partMap[c.character_id];var color=c.cheering_color||'#ccc';
-    if(p) return '<div class="reh-part-card filled" data-cid="'+c.character_id+'" data-reh="'+rehId+'" data-cn="'+p.cn+'" data-pid="'+p.pid+'" style="--card-color:'+color+'" onclick="rehCardClick(this)"><div class="rpc-char" style="color:'+color+'">'+c.name+'</div><div class="rpc-dancer">'+p.cn+'</div></div>';
-    return '<div class="reh-part-card missing" data-cid="'+c.character_id+'" data-reh="'+rehId+'" onclick="rehCardClick(this)"><div class="rpc-char">'+c.name+'</div><div class="rpc-status">+ 空缺</div></div>';
-  }).join('');
+showRehearsalDetail = async function(rehId){await loadDGCache();buildRehModal(rehId);};
 
-  var html='<div style="padding:12px 16px;background:linear-gradient(135deg,#ff6b9d,#e878a8);border-radius:12px;color:#fff;margin-bottom:14px;"><strong style="font-size:1.1em;">曲目: '+(reh.content_summary||'排练')+'</strong><br><span style="font-size:0.8em;opacity:0.8;">'+(dgCache[reh.dance_group_id]||'?')+' · '+fmtDate(reh.rehearsal_date)+'</span></div>';
-  html+='<table style="font-size:0.9em;margin-bottom:10px;"><tr><td style="color:#999;width:60px;">时间</td><td>'+(reh.start_time||'').slice(0,5)+' - '+(reh.end_time||'').slice(0,5)+'</td></tr><tr><td style="color:#999;">地点</td><td>'+(reh.location||'?')+'</td></tr></table>';
-  html+='<div class="reh-parts-grid" id="reh-detail-grid">'+cards+'</div>';
-  html+='<div style="margin-top:4px;font-size:0.8em;">已填 <strong>'+filled+'</strong>/'+allChars.length+' 人</div>';
-  html+='<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-sm" style="background:#fff;border:1px solid #ef5350;color:#ef5350;" onclick="toggleSlotEdit('+rehId+')">删减角色</button><button class="btn btn-sm" style="background:var(--pink);color:#fff;" onclick="openAddCharPopup('+rehId+')">+ 添加角色</button><button class="btn btn-sm" onclick="closeModal(\'modal-char\')">关闭</button></div>';
-  document.getElementById('char-detail-content').innerHTML=html;
+async function buildRehModal(rehId){
+  var el=document.getElementById('char-detail-content');
+  el.innerHTML='<p style="color:#999;">加载中...</p>';
   document.getElementById('modal-char').classList.add('show');
+  try{
+    var reh=await(await fetch(API+'/rehearsals/'+rehId)).json();
+    var parts=reh.participants||[];
+    var dgName=dgCache[reh.dance_group_id]||'未知舞团';
+    // 获取角色
+    var allChars=[];
+    try{
+      var dg=await(await fetch(API+'/dance-groups/'+reh.dance_group_id)).json();
+      dgName=dg.name||dgName;
+      if(dg.anime_group_id){
+        var group=await(await fetch(API+'/groups/'+dg.anime_group_id)).json();
+        allChars=group.members||[];
+      }
+    }catch(e){}
+    // 排除角色
+    var excluded=reh.excluded_chars?reh.excluded_chars.split(',').map(Number):[];
+    allChars=allChars.filter(function(c){return excluded.indexOf(c.character_id)===-1;});
+    if(!allChars.length) allChars=parts.map(function(p){return{character_id:p.character_id,name:p.character_name,cheering_color:'#ccc'};});
+
+    var partMap={};parts.forEach(function(p){partMap[p.character_id]=p;});
+    var cards=allChars.map(function(c,idx){
+      var p=partMap[c.character_id];
+      if(p) return '<div class="reh-part-card filled" data-cid="'+c.character_id+'" style="--card-color:'+(c.cheering_color||'#ccc')+'"><div class="rpc-char" style="color:'+(c.cheering_color||'#666')+'">'+c.name+'</div><div class="rpc-dancer">'+p.cn_name+'</div><div class="reh-card-btns"><button onclick="event.stopPropagation();doRehAction(\'editDancer\','+rehId+','+c.character_id+','+p.participation_id+')" title="修改">✎</button><button onclick="event.stopPropagation();doRehAction(\'delDancer\','+rehId+','+c.character_id+','+p.participation_id+')" title="删除">×</button></div></div>';
+      return '<div class="reh-part-card missing" data-cid="'+c.character_id+'"><div class="rpc-char">'+c.name+'</div><div class="rpc-status">空缺</div><button class="add-btn" onclick="event.stopPropagation();doRehAction(\'addDancer\','+rehId+','+c.character_id+',0)">+ 指派</button></div>';
+    }).join('');
+
+    el.innerHTML='<div style="padding:12px 16px;background:linear-gradient(135deg,#ff6b9d,#e878a8);border-radius:12px;color:#fff;margin-bottom:14px;"><strong>'+dgName+'</strong> '+fmtDate(reh.rehearsal_date)+'<br><span style="font-size:0.8em;opacity:0.8;">'+(reh.content_summary||'')+' · '+(reh.start_time||'').slice(0,5)+'-'+(reh.end_time||'').slice(0,5)+' @'+(reh.location||'?')+'</span></div>'+
+      '<div class="reh-parts-grid">'+cards+'</div>'+
+      '<div style="margin-top:4px;font-size:0.8em;">已填 <strong>'+parts.length+'</strong>/'+allChars.length+' 人</div>'+
+      '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-sm" onclick="closeModal(\'modal-char\')">关闭</button></div>';
+  }catch(e){el.innerHTML='<p style="color:#e53935;">加载失败: '+e.message+'</p>';}
 }
+
+// 统一操作：addDancer / delDancer
+doRehAction=async function(action,rehId,cid,pid){
+  if(action==='editDancer'){
+    var cn=prompt('修改CN（留空删除）：');if(cn===null)return;
+    if(cn===''){
+      if(!confirm('确定删除此舞见？'))return;
+      await fetch(API+'/rehearsals/'+rehId+'/participants/'+pid,{method:'DELETE'});
+    }else{
+      await fetch(API+'/rehearsals/'+rehId+'/participants/'+pid,{method:'DELETE'});
+      await fetch(API+'/rehearsals/'+rehId+'/participants/simple',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:cid,cn_name:cn})});
+    }
+  }else if(action==='addDancer'){
+    var cn=prompt('指派舞见 CN名：');if(!cn)return;
+    var qq=prompt('舞见QQ号（可选）：')||'';
+    var r=await fetch(API+'/rehearsals/'+rehId+'/participants/simple',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:cid,cn_name:cn,qq:qq||undefined})});
+    if(!r.ok){alert('指派失败');return;}
+  }else if(action==='delDancer'){
+    if(!confirm('确定删除此舞见？'))return;
+    await fetch(API+'/rehearsals/'+rehId+'/participants/'+pid,{method:'DELETE'});
+  }
+  buildRehModal(rehId);try{loadPerfView();}catch(e){}
+};
+
+// ↓ 添加角色弹窗（推荐+搜索）
+openAddCharPopup=async function(rehId){
+  var rr=await fetch(API+'/rehearsals/'+rehId);var reh=await rr.json();
+  var excluded=reh.excluded_chars?reh.excluded_chars.split(',').map(Number):[];
+  var dgr=await fetch(API+'/dance-groups/'+reh.dance_group_id);var dg=await dgr.json();
+  var allCr=await fetch(API+'/characters');var allChars=await allCr.json();
+  var recommended=allChars.filter(function(c){return c.group_id===dg.anime_group_id&&excluded.indexOf(c.character_id)>=0;});
+  var others=allChars.filter(function(c){return excluded.indexOf(c.character_id)===-1&&c.group_id!==dg.anime_group_id;});
+
+  var html='<h3>添加角色卡片</h3>';
+  if(recommended.length){
+    html+='<p style="font-size:0.85em;color:#999;">推荐（同团已排除）：</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">';
+    recommended.forEach(function(c){html+='<div class="card" style="width:90px;padding:8px;text-align:center;cursor:pointer;" onclick="closeModal(\'modal-sub\');fetch(API+\'/rehearsals/'+rehId+'/chars\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({character_id:'+c.character_id+'})}).then(function(){buildRehModal('+rehId+');loadPerfView();})"><h3 style="font-size:0.8em;">'+c.name+'</h3><span class="tag blue">'+(c.group_name||'')+'</span></div>';});
+    html+='</div>';
+  }
+  html+='<input type="text" id="char-search-box" placeholder="搜索其他角色..." style="width:100%;padding:8px;border-radius:20px;border:2px solid #eee;margin-bottom:8px;" oninput="var q=(this.value||\'\').toLowerCase();document.querySelectorAll(\'.char-search-item\').forEach(function(e){e.style.display=e.dataset.name.toLowerCase().includes(q)?\'\':\'none\'})">';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:200px;overflow-y:auto;" id="char-search-results">';
+  others.forEach(function(c){html+='<div class="char-search-item card" style="width:90px;padding:8px;text-align:center;cursor:pointer;" data-name="'+c.name+'" onclick="closeModal(\'modal-sub\');fetch(API+\'/rehearsals/'+rehId+'/chars\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({character_id:'+c.character_id+'})}).then(function(){buildRehModal('+rehId+');loadPerfView();})"><h3 style="font-size:0.8em;">'+c.name+'</h3><span class="tag blue">'+(c.group_name||'')+'</span></div>';});
+  html+='</div><div style="margin-top:12px;text-align:right;"><button class="btn" onclick="closeModal(\'modal-sub\')">关闭</button></div>';
+  document.getElementById('modal-sub-content').innerHTML=html;
+  document.getElementById('modal-sub').classList.add('show');
+};
 
 editDancerInDetail=function(rehId,charId,cn,partId){var ncn=prompt('修改CN（留空删除）：',cn);if(ncn===null)return;if(ncn===''){if(confirm('删除？')){fetch(API+'/rehearsals/'+rehId+'/participants/'+partId,{method:'DELETE'}).then(function(){renderRehDetail(rehId);loadPerfView();});}}else if(ncn!==cn){fetch(API+'/rehearsals/'+rehId+'/participants/'+partId,{method:'DELETE'}).then(function(){assignByName(rehId,charId,ncn);});}};
 assignDancerInDetail=function(rehId,charId){var cn=prompt('指派舞见CN：');if(!cn)return;assignByName(rehId,charId,cn);};
@@ -254,17 +304,33 @@ toggleSlotEdit=function(rehId){
   if(editing){grid.classList.add('editing');}else{grid.classList.remove('editing');}
   grid.querySelectorAll('.reh-part-card').forEach(function(card){
     if(editing){card.classList.add('shaking');}else{card.classList.remove('shaking');}
+    // 编辑模式下给每个卡片加删除小按钮
+    var cid=card.getAttribute('data-cid');
+    if(editing&&cid){
+      var btn=document.createElement('span');btn.textContent='×';btn.className='del-btn';
+      btn.style.cssText='position:absolute;top:2px;right:4px;color:#ef5350;font-weight:700;font-size:14px;cursor:pointer;z-index:5;';
+      btn.onclick=function(e){e.stopPropagation();deleteCharSlot(rehId,parseInt(cid));};
+      if(!card.querySelector('.del-btn')) card.appendChild(btn);
+    }else{
+      var db=card.querySelector('.del-btn');if(db)db.remove();
+    }
   });
   if(editing) showExcludedPicker(rehId); else {var pk=document.getElementById('excluded-picker-'+rehId);if(pk)pk.remove();}
+};
+
+deleteCharSlot=function(rehId,cid){
+  fetch(API+'/rehearsals/'+rehId+'/chars/'+cid,{method:'DELETE'}).then(function(r){
+    if(!r.ok){alert('删除失败 HTTP '+r.status);return;}
+    try{renderRehDetail(rehId);}catch(e){console.error(e);}
+    try{loadPerfView();}catch(e){console.error(e);}
+  }).catch(function(e){alert('网络错误:'+e.message);});
 };
 
 rehCardClick=function(card){
   var cid=parseInt(card.getAttribute('data-cid'));
   var rehId=parseInt(card.getAttribute('data-reh'));
   var grid=document.getElementById('reh-detail-grid');
-  var isEditing=grid&&grid.classList.contains('editing');
-  if(isEditing){
-    if(!confirm('确定移除此角色卡片？'))return;
+  if(grid&&grid.classList.contains('editing')){
     fetch(API+'/rehearsals/'+rehId+'/chars/'+cid,{method:'DELETE'}).then(function(r){
       if(!r.ok) throw new Error('HTTP '+r.status);
       return r.json();

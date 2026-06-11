@@ -82,6 +82,7 @@ CREATE TABLE dancer (
     dancer_id       INT AUTO_INCREMENT PRIMARY KEY,
     dance_group_id  INT NOT NULL,
     cn_name         VARCHAR(100) NOT NULL,
+    qq              VARCHAR(20) UNIQUE,
     contact_info    VARCHAR(200),
     FOREIGN KEY (dance_group_id) REFERENCES dance_group(dance_group_id)
         ON DELETE CASCADE ON UPDATE CASCADE,

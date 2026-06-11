@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Delete Test</title></head><body>
+<h2>测试删除角色</h2>
+<p>排练ID: <input id="rehId" value="1"></p>
+<p>角色ID: <input id="charId" value="9"></p>
+<button onclick="testDelete()">DELETE 测试</button>
+<button onclick="testAdd()">POST 加回测试</button>
+<pre id="result"></pre>
+
+<script>
+var API='http://localhost:3000/api';
+async function testDelete(){
+  var rid=document.getElementById('rehId').value;
+  var cid=document.getElementById('charId').value;
+  var r=await fetch(API+'/rehearsals/'+rid+'/chars/'+cid,{method:'DELETE'});
+  var j=await r.json();
+  document.getElementById('result').textContent='DELETE /rehearsals/'+rid+'/chars/'+cid+'\nStatus: '+r.status+'\n'+JSON.stringify(j,null,2);
+}
+async function testAdd(){
+  var rid=document.getElementById('rehId').value;
+  var cid=document.getElementById('charId').value;
+  var r=await fetch(API+'/rehearsals/'+rid+'/chars',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:parseInt(cid)})});
+  var j=await r.json();
+  document.getElementById('result').textContent='POST /rehearsals/'+rid+'/chars\nStatus: '+r.status+'\n'+JSON.stringify(j,null,2);
+}
+</script>
+</body></html>
