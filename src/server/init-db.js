@@ -46,6 +46,7 @@ async function init() {
   console.log('[3/6] 角色描述与互动词 ...');
   try { await conn.query(read('character-descriptions.sql')); tick('描述已加载'); } catch(e){ console.log('  - 跳过'); }
   try { await conn.query(read('character-call-response.sql')); tick('互动词已加载'); } catch(e){ console.log('  - 跳过'); }
+  try { await conn.query(read('eye-colors.sql')); tick('瞳色已加载'); } catch(e){ console.log('  - 跳过'); }
 
   // Layer 4 ── 演唱会
   console.log('[4/6] 演唱会数据 ...');

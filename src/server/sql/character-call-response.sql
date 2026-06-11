@@ -47,8 +47,8 @@ UPDATE `character` SET cheering_color='#0000A0', call_response='秋あかね 歌
 
 -- ===== Liella! 二期生（TODO: 需从萌娘百科/LLWiki验证C&R） =====
 UPDATE `character` SET cheering_color='#FFF442', call_response=NULL WHERE character_id=36;
-UPDATE `character` SET cheering_color='#FF3535', call_response=NULL WHERE character_id=37;
-UPDATE `character` SET cheering_color='#B2FFDD', call_response=NULL WHERE character_id=38;
+UPDATE `character` SET cheering_color='#FF3535', call_response='メイちゃん！負けないで！', eye_color='玫红色' WHERE character_id=37;
+UPDATE `character` SET cheering_color='#7EC8E3', call_response='シキ！実験成功！', eye_color='水蓝色' WHERE character_id=38;
 UPDATE `character` SET cheering_color='#FF51C4', call_response=NULL WHERE character_id=39;
 
 -- ===== Liella! 三期生（TODO: 需验证） =====

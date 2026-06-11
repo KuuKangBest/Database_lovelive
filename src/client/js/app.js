@@ -34,7 +34,7 @@ async function loadHome() {
   var dancers=await(await fetch(API+'/dancers')).json();document.getElementById('stat-dancers').textContent=dancers.length;
   var today=new Date().toISOString().slice(0,10);
   var twoWeek=new Date(Date.now()+14*86400000).toISOString().slice(0,10);
-  var rr=await fetch(API+'/rehearsals?date_from='+today+'&date_to='+twoWeek);
+  var rr=await fetch(API+'/rehearsals?date_from='+today+'&date_to='+twoWeek+'&reh_status=active');
   var list=await rr.json();
   var el=document.getElementById('home-rehearsals');
   if(!list.length){el.innerHTML='<p style="color:#999;">未来两周暂无排练</p>';return;}
@@ -205,7 +205,7 @@ loadPerfView = async function(){
   await loadDGCache();
   var df=document.getElementById('reh-date-from').value;
   if(!df) df=new Date().toISOString().slice(0,10);
-  var url=API+'/rehearsals?'; if(df)url+='date_from='+df+'&';
+  var url=API+'/rehearsals?reh_status=active&'; if(df)url+='date_from='+df+'&';
   var rehs=await(await fetch(url)).json();
   var groups={};
   rehs.forEach(function(r){
@@ -474,7 +474,7 @@ async function renderCal(calId){
   var now=new Date(),y=now.getFullYear(),m=now.getMonth();
   var days=new Date(y,m+1,0).getDate(),first=new Date(y,m,1).getDay(),today=now.toISOString().slice(0,10);
   var ms=y+'-'+String(m+1).padStart(2,'0')+'-01',me=y+'-'+String(m+1).padStart(2,'0')+'-'+String(days).padStart(2,'0');
-  var rehs=await(await fetch(API+'/rehearsals?date_from='+ms+'&date_to='+me)).json();
+  var rehs=await(await fetch(API+'/rehearsals?reh_status=active&date_from='+ms+'&date_to='+me)).json();
   var rd={},dgCol={1:'#ff8c42',2:'#42a5f5',3:'#ab47bc',4:'#66bb6a',7:'#ef5350',8:'#ffa726',9:'#78909c'};
   rehs.forEach(function(r){var d=r.rehearsal_date.slice(0,10);if(!rd[d])rd[d]=[];rd[d].push(r.dance_group_id);});
   var hd=['日','一','二','三','四','五','六'].map(function(h){return'<div class="cal-hd">'+h+'</div>';}).join('');
@@ -492,7 +492,7 @@ showHomeDateRehearsals=async function(ds){
   homeSelectedDate=ds;
   document.querySelectorAll('#home-calendar .cal-day').forEach(function(el){el.classList.toggle('selected',el.getAttribute('data-date')===ds);});
   await loadDGCache();
-  var rehs=await(await fetch(API+'/rehearsals?date_from='+ds+'&date_to='+ds)).json();
+  var rehs=await(await fetch(API+'/rehearsals?reh_status=active&date_from='+ds+'&date_to='+ds)).json();
   var el=document.getElementById('home-date-rehearsals');
   if(!rehs.length){el.innerHTML='<p style="color:#999;text-align:center;padding:14px;background:#fff;border-radius:12px;margin-bottom:8px;">📅 '+ds+' — 暂无排练</p>';return;}
   el.innerHTML='<h3 style="color:var(--pink);margin-bottom:10px;display:flex;align-items:center;gap:6px;">📅 '+ds+'<span style="font-weight:400;font-size:0.7em;color:#999;">（'+rehs.length+' 场排练）</span></h3>'+rehs.map(function(r){var cancelled=r.status==='cancelled';return'<div class="rehearsal-item'+(cancelled?' cancelled':'')+'" style="cursor:pointer;" onclick="showRehearsalDetail('+r.rehearsal_id+')"><div class="info"><strong>'+(dgCache[r.dance_group_id]||'?')+'</strong> · '+(r.start_time||'').slice(0,5)+'-'+(r.end_time||'').slice(0,5)+' @'+r.location+(cancelled?' <span style="color:#c62828;font-weight:700;">[已取消]</span>':'')+'<br><small>'+(r.content_summary||'')+'</small></div><span class="count '+(cancelled?'cancelled':r.occupancy_status)+'">'+(cancelled?'已取消':r.current_participants+'人')+'</span></div>';}).join('');

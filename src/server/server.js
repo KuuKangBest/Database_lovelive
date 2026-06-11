@@ -78,7 +78,7 @@ app.get('/api/characters', async (req, res) => {
              LEFT JOIN cv ON c.cv_id = cv.cv_id WHERE 1=1`;
   const params = [];
   if (group_id) { sql += ' AND c.group_id = ?'; params.push(group_id); }
-  if (search) { sql += ' AND c.name LIKE ?'; params.push(`%${search}%`); }
+  if (search) { sql += ' AND (c.name LIKE ? OR c.hobby LIKE ? OR c.description LIKE ?)'; params.push('%'+search+'%', '%'+search+'%', '%'+search+'%'); }
   if (cv_age_min) { sql += ' AND TIMESTAMPDIFF(YEAR, cv.birth_date, CURDATE()) >= ?'; params.push(parseInt(cv_age_min)); }
   if (cv_age_max) { sql += ' AND TIMESTAMPDIFF(YEAR, cv.birth_date, CURDATE()) <= ?'; params.push(parseInt(cv_age_max)); }
   sql += ' ORDER BY c.character_id';
@@ -155,7 +155,7 @@ app.get('/api/dance-groups/:id', async (req, res) => {
   if (!dg) return res.status(404).json({ error: '未找到' });
   const [dancers] = await pool.query('SELECT * FROM dancer WHERE dance_group_id = ?', [req.params.id]);
   const [rehearsals] = await pool.query(
-    `SELECT * FROM rehearsal_with_count WHERE dance_group_id = ? ORDER BY rehearsal_date DESC`,
+    `SELECT * FROM rehearsal_with_count WHERE dance_group_id = ? AND status = 'active' ORDER BY rehearsal_date DESC`,
     [req.params.id]);
   res.json({ ...dg, dancers, rehearsals });
 });
