@@ -80,13 +80,28 @@ CREATE TABLE dance_group (
 
 CREATE TABLE dancer (
     dancer_id       INT AUTO_INCREMENT PRIMARY KEY,
-    dance_group_id  INT NOT NULL,
+    dance_group_id  INT,
     cn_name         VARCHAR(100) NOT NULL,
-    qq              VARCHAR(20) UNIQUE,
+    qq              VARCHAR(20),
     contact_info    VARCHAR(200),
     FOREIGN KEY (dance_group_id) REFERENCES dance_group(dance_group_id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    INDEX idx_dancer_group (dance_group_id),
+    INDEX idx_dancer_qq (qq)
+) ENGINE=InnoDB;
+
+-- 舞见-舞团 多对多关联表（一人可隶属多个舞团）
+CREATE TABLE dancer_group_membership (
+    membership_id   INT AUTO_INCREMENT PRIMARY KEY,
+    dancer_id       INT NOT NULL,
+    dance_group_id  INT NOT NULL,
+    FOREIGN KEY (dancer_id) REFERENCES dancer(dancer_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
-    INDEX idx_dancer_group (dance_group_id)
+    FOREIGN KEY (dance_group_id) REFERENCES dance_group(dance_group_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    UNIQUE KEY uk_dancer_dg (dancer_id, dance_group_id),
+    INDEX idx_dgm_dancer (dancer_id),
+    INDEX idx_dgm_group (dance_group_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE rehearsal (
@@ -134,6 +149,17 @@ CREATE TABLE IF NOT EXISTS concert (
   name VARCHAR(200) NOT NULL,
   concert_date DATE,
   FOREIGN KEY (project_id) REFERENCES project(project_id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS character_relationship (
+  relationship_id INT AUTO_INCREMENT PRIMARY KEY,
+  character_id_1 INT NOT NULL,
+  character_id_2 INT NOT NULL,
+  relation_type ENUM('姐妹','幼驯染','搭档','憧憬','挚友','对手','同学','师徒') NOT NULL,
+  description VARCHAR(500),
+  FOREIGN KEY (character_id_1) REFERENCES `character`(character_id) ON DELETE CASCADE ON UPDATE CASCADE,
+  FOREIGN KEY (character_id_2) REFERENCES `character`(character_id) ON DELETE CASCADE ON UPDATE CASCADE,
+  UNIQUE KEY uk_char_rel (character_id_1, character_id_2, relation_type)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS song (

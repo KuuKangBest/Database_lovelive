@@ -77,7 +77,7 @@
   <div id="characters" class="page">
     <button class="back-home" onclick="showPage('home')">&#9664; 回到首页</button>
     <div class="filter-bar">
-      <input type="text" id="char-search" placeholder="搜索角色名/爱好/特征..." title="支持模糊搜索：如"吃面包""冰淇淋""科学实验"等">
+      <input type="text" id="char-search" placeholder="🔍 搜索角色名/爱好/声优/瞳色/特征…（多关键词空格分隔）" title="支持多关键词模糊搜索，空格分隔。可搜索：角色名、爱好、描述、声优名、团体名、瞳色、应援色、血型、互动词。例如：&quot;蓝色 钢琴&quot; 或 &quot;新田 吃面包&quot;">
       <details class="group-select-panel">
         <summary style="color:var(--pink);font-weight:700;cursor:pointer;margin-bottom:10px;">动漫团体筛选 <span style="font-weight:400;font-size:0.75em;color:#999;margin-left:6px;" onclick="selectAllGroups();return false;">全选</span> / <span style="font-weight:400;font-size:0.75em;color:#999;" onclick="deselectAllGroups();return false;">全不选</span></summary>
         <div class="group-mini-cards" id="group-mini-cards"></div>
@@ -151,7 +151,7 @@
 
 <!-- 新增排练弹窗 -->
 <div class="modal-overlay" id="modal-rehearsal">
-  <div class="modal" style="max-width:520px;">
+  <div class="modal" style="max-width:580px;">
     <h2>新增排练</h2>
     <form id="form-rehearsal" onsubmit="addRehearsal(event)">
       <label>舞团</label>
@@ -167,10 +167,12 @@
         <div style="flex:1;"><label>结束时间</label><input type="time" id="f-end" required></div>
       </div>
       <label>地点</label><input type="text" id="f-loc" required placeholder="如：综合楼 201">
-      <label>人数上限 <span style="font-weight:400;color:#999;">（0 = 不限，实际人数由卡片决定）</span></label>
-      <input type="number" id="f-max" value="0" min="0">
       <label>内容简介</label>
       <textarea id="f-desc" rows="2" placeholder="如：Snow halation 初排"></textarea>
+      <div id="reh-init-chars" style="display:none;margin-top:12px;">
+        <label>初始舞见分配 <span style="font-weight:400;color:#999;font-size:0.85em;">（在上方选好舞团后出现，填CN名指派，留空则暂缺）</span></label>
+        <div id="reh-init-grid" style="display:flex;flex-wrap:wrap;gap:8px;max-height:220px;overflow-y:auto;padding:4px 0;"></div>
+      </div>
       <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
         <button type="button" class="btn" onclick="closeModal('modal-rehearsal')">取消</button>
         <button type="submit" class="btn btn-primary">确认添加</button>
@@ -203,7 +205,7 @@
 
 <!-- 角色详情弹窗 -->
 <div class="modal-overlay" id="modal-char">
-  <div class="modal" style="max-width:700px;">
+  <div class="modal" style="max-width:840px;">
     <div id="char-detail-content"></div>
   </div>
 </div>
@@ -214,6 +216,6 @@
   </div>
 </div>
 
-<script src="js/app.js?v=9"></script>
+<script src="js/app.js?v=18"></script>
 </body>
 </html>

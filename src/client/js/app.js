@@ -17,8 +17,8 @@ function showPage(name, filterVal) {
   if (name==='groups') loadGroups();
   if (name==='characters'){ if(filterVal){ loadCharacters(); } else { selectedGroups=[]; loadCharacters(); setTimeout(selectAllGroups,100); } }
   if (name==='rehearsal') { renderCalendar(); loadPerfView(); }
-  if (name==='dancegroups') loadDgMgmt();
-  if (name==='dancers') { loadDancerList(); buildCharBiasCards(); }
+  if (name==='dancegroups') { dgCache={}; loadDgMgmt(); }
+  if (name==='dancers') { dgCache={}; var dsf=document.getElementById('dancer-dg-filter');if(dsf)dsf.innerHTML=''; loadDancerList(); buildCharBiasCards(); }
   if (name==='home') loadHome();
 }
 
@@ -92,6 +92,8 @@ deselectAllGroups = function(){
   loadCharacters();
 };
 
+// 搜索防抖定时器
+var searchTimer = null;
 async function loadCharacters(){
   var cardsWrap = document.getElementById('group-mini-cards');
   if (cardsWrap.children.length===0){
@@ -100,7 +102,6 @@ async function loadCharacters(){
     document.querySelectorAll('.group-mini-card').forEach(function(c){c.classList.add('active');});
     selectedGroups=groups.map(function(g){return String(g.group_id);});
   }
-  // 每次进入角色页都检查是否有来自动漫团的筛选指令
   if (pageFilter&&pageFilter.gid){
     selectedGroups=[String(pageFilter.gid)]; pageFilter=null;
     document.querySelectorAll('.group-mini-card').forEach(function(c){c.classList.toggle('active',c.dataset.gid===selectedGroups[0]);});
@@ -108,57 +109,49 @@ async function loadCharacters(){
   var search = document.getElementById('char-search').value.trim();
   var ageRange = document.getElementById('char-filter-age').value;
   var chars;
-  var isSemantic = false;
-  if (search) {
-    // 语义向量搜索
-    isSemantic = true;
-    chars = await(await fetch(API+'/characters/semantic?q='+encodeURIComponent(search))).json();
-    // 客户端叠加团体筛选
-    if (selectedGroups.length>=1) {
-      chars = chars.filter(function(c){return selectedGroups.indexOf(String(c.group_id))>=0;});
-    }
-    // 声优年龄筛选
-    if (ageRange) {
-      var parts=ageRange.split('-');
-      var minAge=parseInt(parts[0]), maxAge=parseInt(parts[1]);
-      chars = chars.filter(function(c){
-        if(!c.birth_date)return false;
-        var age=Math.floor((new Date()-new Date(c.birth_date))/31557600000);
-        return age>=minAge&&age<=maxAge;
-      });
-    }
-  } else {
-    var url = API+'/characters?';
-    if (selectedGroups.length===1) url+='group_id='+selectedGroups[0]+'&';
-    if (ageRange){var parts=ageRange.split('-');url+='cv_age_min='+parts[0]+'&cv_age_max='+parts[1]+'&';}
-    var r = await fetch(url); chars = await r.json();
-    if (selectedGroups.length>=1){ chars=chars.filter(function(c){return selectedGroups.indexOf(String(c.group_id))>=0;}); }
-    else if (cardsWrap.children.length>0) {
-      document.getElementById('char-grid').innerHTML='<p style="color:#999;text-align:center;padding:40px;">未选择团体，点击上方卡片筛选</p>'; return;
-    }
+  var isSearch = !!search;
+
+  // 构建查询 URL（使用增强版多字段多关键词搜索）
+  var url = API+'/characters?';
+  if (search) url+='search='+encodeURIComponent(search)+'&';
+  if (selectedGroups.length===1) url+='group_id='+selectedGroups[0]+'&';
+  if (ageRange){var parts=ageRange.split('-');url+='cv_age_min='+parts[0]+'&cv_age_max='+parts[1]+'&';}
+  var r = await fetch(url); chars = await r.json();
+
+  // 客户端叠加多团体筛选和服务端未覆盖的年龄筛选
+  if (!isSearch && selectedGroups.length>=1){
+    chars=chars.filter(function(c){return selectedGroups.indexOf(String(c.group_id))>=0;});
+  }
+  if (isSearch && selectedGroups.length>=1){
+    chars=chars.filter(function(c){return selectedGroups.indexOf(String(c.group_id))>=0;});
   }
 
-  if (isSemantic && !chars.length) {
-    document.getElementById('char-grid').innerHTML='<p style="color:#999;text-align:center;padding:40px;">没有匹配的角色，试试其他关键词</p>'; return;
+  if (!isSearch && !selectedGroups.length && cardsWrap.children.length>0) {
+    document.getElementById('char-grid').innerHTML='<p style="color:#999;text-align:center;padding:40px;">未选择团体，点击上方卡片筛选<br><small>或在上方搜索框中输入关键词进行全局搜索</small></p>'; return;
   }
-  if (isSemantic) {
-    // 语义搜索结果：按相关性排名平铺，显示相似度
+  if (!chars.length) {
+    var hint = search ? ('没有匹配 "'+search+'" 的角色，试试其他关键词'+(search.indexOf(' ')===-1?' 或用空格分隔多个关键词（如"蓝色 钢琴"）':'')) : '没有匹配的角色';
+    document.getElementById('char-grid').innerHTML='<p style="color:#999;text-align:center;padding:40px;">'+hint+'</p>'; return;
+  }
+
+  // 搜索结果：按相关性平铺展示
+  if (isSearch) {
+    var kwTags = search.split(/\s+/).filter(Boolean).map(function(k){return '<span class="tag" style="background:#fce4ec;color:var(--pink);">'+k+'</span>';}).join(' ');
     document.getElementById('char-grid').innerHTML =
-      '<div style="grid-column:1/-1;margin-bottom:12px;"><h3 style="color:var(--pink);">🔍 语义搜索 "'+search+'" <span style="font-weight:400;font-size:0.8em;color:#999;">('+chars.length+'个结果，按相关性排序)</span></h3></div>'+
+      '<div style="grid-column:1/-1;margin-bottom:12px;"><h3 style="color:var(--pink);">🔍 搜索 '+kwTags+' <span style="font-weight:400;font-size:0.8em;color:#999;">('+chars.length+'个结果，按相关性排序)</span></h3><p style="font-size:0.75em;color:#999;">搜索范围：角色名、爱好、描述、声优、团体、瞳色、应援色、互动词、血型</p></div>'+
       chars.map(function(c){
         var age = c.birth_date?Math.floor((new Date()-new Date(c.birth_date))/31557600000):null;
         var cheerDot = c.cheering_color?' <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:'+c.cheering_color+';border:1px solid #ddd;vertical-align:middle;"></span>':'';
-        var scorePct = c.similarity ? Math.round(c.similarity*100) : 0;
-        var scoreColor = scorePct>=70?'#4caf50':scorePct>=40?'#ff9800':'#999';
-        return '<div class="card" onclick="showCharDetail('+c.character_id+')"><div class="card-render-bg" style="background-image:url(images/chars/char-'+c.character_id+'.png)"></div><h3>'+c.name+cheerDot+'</h3><span class="tag" style="background:'+scoreColor+';color:#fff;">相关度 '+scorePct+'%</span><span class="tag blue">'+(c.birthday||'?')+' · '+(c.blood_type||'?')+'型 · '+(c.height||'?')+'cm</span><div class="cv">CV: '+(c.cv_name||'?')+(age?' ('+age+'岁)':'')+' · '+(c.group_name||'')+'</div>'+(c.hobby?'<div style="margin-top:6px;font-size:0.82em;color:#888;">'+c.hobby+'</div>':'')+'<div style="margin-top:4px;font-size:0.75em;color:var(--pink);">点击查看详情 →</div></div>';
+        return '<div class="card" onclick="showCharDetail('+c.character_id+')"><div class="card-render-bg" style="background-image:url(images/chars/char-'+c.character_id+'.png)"></div><h3>'+c.name+cheerDot+'</h3><span class="tag blue">'+(c.birthday||'?')+' · '+(c.blood_type||'?')+'型 · '+(c.height||'?')+'cm</span><div class="cv">CV: '+(c.cv_name||'?')+(age?' ('+age+'岁)':'')+' · '+(c.group_name||'')+'</div>'+(c.hobby?'<div style="margin-top:6px;font-size:0.82em;color:#888;">'+c.hobby+'</div>':'')+(c.eye_color?'<div style="font-size:0.75em;color:#999;">瞳色: '+c.eye_color+'</div>':'')+'<div style="margin-top:4px;font-size:0.75em;color:var(--pink);">点击查看详情 →</div></div>';
       }).join('');
   } else {
+    // 非搜索：按团体分组展示
     var grp={}; chars.forEach(function(c){var gn=c.group_name||'其他'; if(!grp[gn])grp[gn]=[]; grp[gn].push(c);});
     document.getElementById('char-grid').innerHTML = Object.entries(grp).map(function(e){
       return '<div style="grid-column:1/-1;margin-top:12px;"><h3 style="color:var(--pink);padding-bottom:6px;border-bottom:2px solid var(--pink-light);">'+e[0]+' <span style="font-weight:400;font-size:0.8em;color:#999;">('+e[1].length+'人)</span></h3></div>'+e[1].map(function(c){
         var age = c.birth_date?Math.floor((new Date()-new Date(c.birth_date))/31557600000):null;
         var cheerDot = c.cheering_color?' <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:'+c.cheering_color+';border:1px solid #ddd;vertical-align:middle;"></span>':'';
-        return '<div class="card" onclick="showCharDetail('+c.character_id+')"><div class="card-render-bg" style="background-image:url(images/chars/char-'+c.character_id+'.png)"></div><h3>'+c.name+cheerDot+'</h3><span class="tag blue">'+(c.birthday||'?')+' · '+(c.blood_type||'?')+'型 · '+(c.height||'?')+'cm</span><div class="cv">CV: '+(c.cv_name||'?')+(age?' ('+age+'岁)':'')+'</div>'+(c.hobby?'<div style="margin-top:6px;font-size:0.82em;color:#888;">'+c.hobby+'</div>':'')+'<div style="margin-top:4px;font-size:0.75em;color:var(--pink);">点击查看详情 →</div></div>';
+        return '<div class="card" onclick="showCharDetail('+c.character_id+')"><div class="card-render-bg" style="background-image:url(images/chars/char-'+c.character_id+'.png)"></div><h3>'+c.name+cheerDot+'</h3><span class="tag blue">'+(c.birthday||'?')+' · '+(c.blood_type||'?')+'型 · '+(c.height||'?')+'cm</span><div class="cv">CV: '+(c.cv_name||'?')+(age?' ('+age+'岁)':'')+'</div>'+(c.hobby?'<div style="margin-top:6px;font-size:0.82em;color:#888;">'+c.hobby+'</div>':'')+(c.eye_color?'<div style="font-size:0.75em;color:#999;">瞳色: '+c.eye_color+'</div>':'')+'<div style="margin-top:4px;font-size:0.75em;color:var(--pink);">点击查看详情 →</div></div>';
       }).join('');
     }).join('');
   }
@@ -167,7 +160,7 @@ async function loadCharacters(){
 async function showCharDetail(charId){
   var r = await fetch(API+'/characters/'+charId); var c = await r.json();
   var age = c.birth_date?Math.floor((new Date()-new Date(c.birth_date))/31557600000):null;
-  var rehItems=c.rehearsals&&c.rehearsals.length?c.rehearsals.map(function(rh){return'<div style="font-size:0.82em;padding:4px 0;border-bottom:1px solid #f0f0f0;"><span style="color:var(--pink);cursor:pointer;" onclick="showDancerDetail('+(rh.dancer_id||0)+')">'+rh.cn_name+'</span> · '+fmtDate(rh.rehearsal_date)+' · <span style="color:#42a5f5;cursor:pointer;" onclick="showDgDetail('+(rh.dance_group_id||0)+')">'+rh.dance_group_name+'</span></div>';}):[];
+  var rehItems=c.rehearsals&&c.rehearsals.length?c.rehearsals.map(function(rh){return'<div style="font-size:0.82em;padding:6px 8px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:8px;"><div style="flex:1;"><span style="color:var(--pink);cursor:pointer;text-decoration:underline;" onclick="event.stopPropagation();closeModal(\'modal-char\');showDancerDetail('+(rh.dancer_id||0)+')">'+rh.cn_name+'</span><span style="color:#999;"> · '+fmtDate(rh.rehearsal_date)+' · </span><span style="color:#42a5f5;cursor:pointer;text-decoration:underline;" onclick="event.stopPropagation();closeModal(\'modal-char\');showDgDetail('+(rh.dance_group_id||0)+')">'+rh.dance_group_name+'</span></div><button class="btn btn-sm" style="padding:2px 10px;font-size:0.75em;background:var(--pink);color:#fff;white-space:nowrap;" onclick="closeModal(\'modal-char\');showRehearsalDetail('+rh.rehearsal_id+')">查看排练</button></div>';}):[];
   var rehHTML='';
   if(rehItems.length){
     rehHTML='<div style="margin-top:12px;"><h4 style="color:var(--pink);">近期排练 ('+rehItems.length+'次)</h4>'+rehItems.slice(0,5).join('');
@@ -203,16 +196,38 @@ async function showTimeline(projectId){
   document.getElementById('modal-char').classList.add('show');
 }
 
-// ── Relation graph
-var specialRels={'17,15':'姐妹','15,17':'姐妹','56,57':'姐妹','57,56':'姐妹','39,41':'姐妹','41,39':'姐妹','1,3':'幼驯染','3,1':'幼驯染','1,4':'幼驯染','4,1':'幼驯染','10,12':'幼驯染','12,10':'幼驯染','31,33':'幼驯染','33,31':'幼驯染','10,1':'憧憬','6,9':'搭档','9,6':'搭档','2,7':'搭档','7,2':'搭档','11,12':'搭档','12,11':'搭档'};
+// ── Relation graph (从 API 动态加载关系数据)
+var relCache = {};
+var relColorMap = {'姐妹':'#e91e63','幼驯染':'#ff9800','搭档':'#4caf50','憧憬':'#9c27b0','挚友':'#2196f3','对手':'#f44336','同学':'#607d8b','师徒':'#00bcd4'};
+async function loadRels(groupId) {
+  if (relCache[groupId]) return relCache[groupId];
+  try {
+    var r = await fetch(API+'/relationships?group_id='+groupId);
+    var rels = await r.json();
+    var map = {};
+    var order = ['姐妹','幼驯染','搭档','挚友','憧憬','对手','同学','师徒'];
+    function pick(a,b){ return order.indexOf(a)<=order.indexOf(b)?a:b; }
+    rels.forEach(function(rel){
+      var k1 = rel.character_id_1+','+rel.character_id_2;
+      var k2 = rel.character_id_2+','+rel.character_id_1;
+      if (map[k1]) map[k1] = pick(map[k1], rel.relation_type);
+      else map[k1] = rel.relation_type;
+      if (map[k2]) map[k2] = pick(map[k2], rel.relation_type);
+      else map[k2] = rel.relation_type;
+    });
+    relCache[groupId] = map;
+    return map;
+  } catch(e) { return {}; }
+}
 async function showRelationGraph(charId){
   var c=await(await fetch(API+'/characters/'+charId)).json();
   var group=await(await fetch(API+'/groups/'+c.group_id)).json();
   var members=group.members||[]; if(members.length<2){alert('暂无关系数据');return;}
+  var specialRels = await loadRels(c.group_id);
   var nodes=members.map(function(m){return{id:m.character_id,name:m.name,color:m.cheering_color||'#ff6b9d',isCenter:m.character_id===charId};});
-  var W=600,H=480,cx=W/2,cy=H/2;
-  nodes.forEach(function(n,i){var a=i/nodes.length*2*Math.PI-Math.PI/2;n.x=cx+(n.isCenter?0:160)*Math.cos(a);n.y=cy+(n.isCenter?0:160)*Math.sin(a);n.vx=0;n.vy=0;});
-  var html='<canvas id="rel-canvas" width="'+W+'" height="'+H+'" style="background:#fdf6f8;border-radius:16px;cursor:grab;"></canvas><div style="text-align:right;margin-top:8px;"><button class="btn" onclick="closeModal(\'modal-char\')">关闭</button></div>';
+  var W=780,H=560,cx=W/2,cy=H/2;
+  nodes.forEach(function(n,i){var a=i/nodes.length*2*Math.PI-Math.PI/2;n.x=cx+(n.isCenter?0:220)*Math.cos(a);n.y=cy+(n.isCenter?0:220)*Math.sin(a);n.vx=0;n.vy=0;});
+  var html='<canvas id="rel-canvas" width="'+W+'" height="'+H+'" style="background:#fdf6f8;border-radius:16px;cursor:grab;max-width:100%;"></canvas><div style="text-align:right;margin-top:8px;"><button class="btn" onclick="closeModal(\'modal-char\')">关闭</button></div>';
   document.getElementById('char-detail-content').innerHTML=html;
   document.getElementById('modal-char').classList.add('show');
   setTimeout(function(){
@@ -220,10 +235,10 @@ async function showRelationGraph(charId){
     function drawArrow(x1,y1,x2,y2,cl,sz){var a=Math.atan2(y2-y1,x2-x1);var px=x2-26*Math.cos(a),py=y2-26*Math.sin(a);ctx.fillStyle=cl;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-sz*Math.cos(a-0.6),py-sz*Math.sin(a-0.6));ctx.lineTo(px-sz*Math.cos(a+0.6),py-sz*Math.sin(a+0.6));ctx.closePath();ctx.fill();}
     function step(){
       if(!document.getElementById('rel-canvas'))return;
-      nodes.forEach(function(a){nodes.forEach(function(b){if(a===b)return;var dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1,rel=specialRels[a.id+','+b.id];if(a.isCenter||b.isCenter){var t=a.isCenter?100:120,f=(d-t)*0.004;a.vx+=dx/d*f;a.vy+=dy/d*f;}else if(d<70){var f2=(70-d)*0.015;a.vx-=dx/d*f2;a.vy-=dy/d*f2;}});if(a.isCenter){a.vx+=(cx-a.x)*0.015;a.vy+=(cy-a.y)*0.015;}a.vx*=0.9;a.vy*=0.9;a.x+=a.vx;a.y+=a.vy;a.x=Math.max(20,Math.min(W-20,a.x));a.y=Math.max(20,Math.min(H-20,a.y));});
+      nodes.forEach(function(a){nodes.forEach(function(b){if(a===b)return;var dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1,rel=specialRels[a.id+','+b.id];if(a.isCenter||b.isCenter){var t=a.isCenter?140:160,f=(d-t)*0.003;a.vx+=dx/d*f;a.vy+=dy/d*f;}else if(d<90){var f2=(90-d)*0.012;a.vx-=dx/d*f2;a.vy-=dy/d*f2;}});if(a.isCenter){a.vx+=(cx-a.x)*0.01;a.vy+=(cy-a.y)*0.01;}a.vx*=0.9;a.vy*=0.9;a.x+=a.vx;a.y+=a.vy;a.x=Math.max(30,Math.min(W-30,a.x));a.y=Math.max(30,Math.min(H-30,a.y));});
       ctx.clearRect(0,0,W,H);
-      nodes.forEach(function(a){nodes.forEach(function(b){if(a.id>=b.id)return;var rel=specialRels[a.id+','+b.id];ctx.strokeStyle=rel?'#e57373':(a.isCenter||b.isCenter?'#ffc0cb':'#f0e0e8');ctx.lineWidth=rel?2.2:(a.isCenter||b.isCenter?1:0.4);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();if(rel){drawArrow(a.x,a.y,b.x,b.y,'#e57373',7);if(rel!=='憧憬')drawArrow(b.x,b.y,a.x,a.y,'#e57373',7);var mx=(a.x+b.x)/2,my=(a.y+b.y)/2;ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='bold 11px Microsoft YaHei';var tw=ctx.measureText(rel).width;ctx.fillRect(mx-tw/2-6,my-10,tw+12,20);ctx.fillStyle='#c62828';ctx.textAlign='center';ctx.fillText(rel,mx,my+4);}});});
-      nodes.forEach(function(n){var r=n.isCenter?30:22;ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=n.color;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=n.isCenter?3:2;ctx.stroke();if(n.isCenter){ctx.beginPath();ctx.arc(n.x,n.y,r+5,0,Math.PI*2);ctx.strokeStyle=n.color;ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);}ctx.fillStyle='#333';ctx.font=(n.isCenter?'bold ':'')+'11px Microsoft YaHei';ctx.textAlign='center';ctx.fillText(n.name,n.x,n.y+r+14);});
+      nodes.forEach(function(a){nodes.forEach(function(b){if(a.id>=b.id)return;var rel=specialRels[a.id+','+b.id];var edgeColor=rel?(relColorMap[rel]||'#e57373'):(a.isCenter||b.isCenter?'#ffc0cb':'#f0e0e8');ctx.strokeStyle=edgeColor;ctx.lineWidth=rel?2.2:(a.isCenter||b.isCenter?1:0.4);ctx.globalAlpha=rel?0.9:(a.isCenter||b.isCenter?0.5:0.2);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.globalAlpha=1;if(rel){var arrowColor=relColorMap[rel]||'#e57373';drawArrow(a.x,a.y,b.x,b.y,arrowColor,7);if(rel!=='憧憬'&&rel!=='对手')drawArrow(b.x,b.y,a.x,a.y,arrowColor,7);var mx=(a.x+b.x)/2,my=(a.y+b.y)/2;ctx.fillStyle='rgba(255,255,255,0.88)';ctx.font='bold 11px Microsoft YaHei';var tw=ctx.measureText(rel).width;ctx.fillRect(mx-tw/2-6,my-10,tw+12,20);ctx.fillStyle=arrowColor;ctx.textAlign='center';ctx.fillText(rel,mx,my+4);}});});
+      nodes.forEach(function(n){var r=n.isCenter?34:24;ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=n.color;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=n.isCenter?3:2;ctx.stroke();if(n.isCenter){ctx.beginPath();ctx.arc(n.x,n.y,r+5,0,Math.PI*2);ctx.strokeStyle=n.color;ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);}ctx.fillStyle='#333';ctx.font=(n.isCenter?'bold ':'')+'12px Microsoft YaHei';ctx.textAlign='center';ctx.fillText(n.name,n.x,n.y+r+15);});
       requestAnimationFrame(step);
     }
     cv.onmousedown=function(e){var r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;for(var i=nodes.length-1;i>=0;i--){var dx=mx-nodes[i].x,dy=my-nodes[i].y;if(dx*dx+dy*dy<30*30){drag=nodes[i];cv.style.cursor='grabbing';return;}}};
@@ -240,8 +255,9 @@ loadRehPage = function(){ loadPerfView(); };
 loadPerfView = async function(){
   await loadDGCache();
   var df=document.getElementById('reh-date-from').value;
+  var dt=document.getElementById('reh-date-to').value;
   if(!df) df=new Date().toISOString().slice(0,10);
-  var url=API+'/rehearsals?reh_status=active&'; if(df)url+='date_from='+df+'&';
+  var url=API+'/rehearsals?reh_status=active&'; if(df)url+='date_from='+df+'&'; if(dt)url+='date_to='+dt+'&';
   var rehs=await(await fetch(url)).json();
   var groups={};
   rehs.forEach(function(r){
@@ -329,9 +345,36 @@ deleteRehearsal=async function(rehId){
 };
 
 // ── 指派舞见弹窗（搜索 + 新建）
-showAssignPopup=function(rehId, charId, oldPid){
+showAssignPopup=async function(rehId, charId, oldPid){
   var isEdit = (typeof oldPid !== 'undefined' && oldPid > 0);
+  // 获取舞团ID用于推荐
+  var rehDgId=null;
+  try{var reh=await(await fetch(API+'/rehearsals/'+rehId)).json();rehDgId=reh.dance_group_id;}catch(e){}
   var html='<h3>'+(isEdit?'修改舞见':'指派舞见')+'</h3>';
+  // 加载推荐
+  var recs=[];
+  if(rehDgId){
+    try{
+      var rr=await fetch(API+'/dancers/recommend?dance_group_id='+rehDgId+'&character_id='+charId);
+      recs=await rr.json();
+    }catch(e){}
+  }
+  if(recs.in_group&&recs.in_group.length){
+    html+='<div style=\"margin-bottom:8px;\"><span style=\"font-size:0.8em;color:#999;\">📌 本团推荐</span></div>';
+    html+='<div style=\"display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;\">';
+    recs.in_group.forEach(function(d){
+      html+='<div class=\"card\" style=\"width:100px;padding:8px;text-align:center;cursor:pointer;border:2px solid #66bb6a;background:#e8f5e9;\" onclick=\"selectRehAssignDancer('+rehId+','+d.dancer_id+','+charId+','+rehDgId+','+(oldPid||0)+')\"><strong style=\"font-size:0.8em;\">'+d.cn_name+'</strong><br><small style=\"color:#999;\">'+d.play_count+'次</small></div>';
+    });
+    html+='</div>';
+  }
+  if(recs.other_group&&recs.other_group.length){
+    html+='<div style=\"margin-bottom:8px;\"><span style=\"font-size:0.8em;color:#999;\">🔗 别团演过此角色</span></div>';
+    html+='<div style=\"display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;\">';
+    recs.other_group.forEach(function(d){
+      html+='<div class=\"card\" style=\"width:100px;padding:8px;text-align:center;cursor:pointer;border:2px solid #ff9800;background:#fff8e1;\" onclick=\"selectRehAssignDancer('+rehId+','+d.dancer_id+','+charId+','+rehDgId+','+(oldPid||0)+')\"><strong style=\"font-size:0.8em;\">'+d.cn_name+'</strong><br><small style=\"color:#999;\">'+(d.dance_group_name||'')+' · '+d.play_count+'次</small></div>';
+    });
+    html+='</div>';
+  }
   html+='<input type="text" id="assign-search" placeholder="搜索舞见CN..." style="width:100%;padding:10px;border-radius:8px;border:2px solid #eee;margin-bottom:8px;" oninput="searchDancers('+rehId+','+charId+','+(oldPid||0)+')">';
   html+='<div id="assign-results" style="max-height:200px;overflow-y:auto;"></div>';
   html+='<div id="assign-new-form" style="display:none;margin-top:10px;padding:10px;background:#fdf6f8;border-radius:8px;">';
@@ -342,7 +385,7 @@ showAssignPopup=function(rehId, charId, oldPid){
   html+='<div style="margin-top:10px;text-align:right;"><button class="btn" onclick="closeModal(\'modal-sub\')">取消</button></div>';
   document.getElementById('modal-sub-content').innerHTML=html;
   document.getElementById('modal-sub').classList.add('show');
-  setTimeout(function(){document.getElementById('assign-search').focus();},100);
+  setTimeout(function(){var inp=document.getElementById('assign-search');if(inp)inp.focus();},100);
 };
 
 searchDancers=async function(rehId, charId, oldPid){
@@ -358,6 +401,25 @@ searchDancers=async function(rehId, charId, oldPid){
   }).join('');
 };
 
+// 推荐舞见快速指派（排练详情弹窗用，支持编辑模式替换）
+selectRehAssignDancer=async function(rehId, dancerId, charId, dgId, oldPid){
+  var reh=await(await fetch(API+'/rehearsals/'+rehId)).json();
+  // 检查舞见当前是否已在其他舞团
+  var dancers=await(await fetch(API+'/dancers')).json();
+  var dd=dancers.find(function(x){return x.dancer_id===dancerId;});
+  if(!dd)return;
+  var currentlyInGroup=(dd.dance_group_id===reh.dance_group_id);
+  if(!currentlyInGroup){
+    if(!confirm('⚠ '+dd.cn_name+' 不在当前舞团中。\n\n将她拉入本舞团并指派？'))return;
+    await fetch(API+'/dancers/'+dancerId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({dance_group_id:reh.dance_group_id})});
+  }
+  // 编辑模式：先删除旧参与记录
+  if(oldPid&&oldPid>0){await fetch(API+'/rehearsals/'+rehId+'/participants/'+oldPid,{method:'DELETE'});}
+  var r=await fetch(API+'/rehearsals/'+rehId+'/participants',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dancer_id:dancerId,character_id:charId})});
+  if(!r.ok){var e=await r.json();alert(e.error||'指派失败');return;}
+  closeModal('modal-sub');
+  buildRehModal(rehId);try{loadPerfView();}catch(e){}
+};
 selectDancerAssign=async function(rehId, charId, dancerId, cn, oldPid){
   if(!confirm('选择舞见 '+cn+'？'))return;
   // 编辑模式：先删旧的
@@ -556,7 +618,7 @@ loadDgMgmt=async function(){
   var groups=await(await fetch(API+'/groups')).json();
   // 填充新建表单的翻跳团体下拉
   var ngSel=document.getElementById('dg-new-anime-group');
-  if(ngSel && ngSel.options.length<=1){
+  if(ngSel){
     ngSel.innerHTML='<option value="">翻跳团体（可选）</option>'+groups.map(function(g){return'<option value="'+g.group_id+'">'+g.name+'</option>';}).join('');
   }
   dgList.innerHTML=dgs.map(function(d){var logo=groupLogo[d.anime_group_id]||'';return'<div class="card" style="display:flex;align-items:center;gap:12px;padding:16px;cursor:pointer;position:relative;" onclick="showDgDetail('+d.dance_group_id+')">'+(logo?'<div style="width:50px;height:50px;border-radius:10px;background-image:url('+logo+');background-size:contain;background-repeat:no-repeat;background-position:center;opacity:0.3;"></div>':'')+'<div style="flex:1;"><strong>'+d.name+'</strong>'+(d.anime_group_name?'<br><small style="color:#999;">翻跳：'+d.anime_group_name+'</small>':'')+'</div><button class="btn btn-danger btn-sm" style="position:absolute;top:10px;right:10px;padding:2px 10px;font-size:0.7em;z-index:2;" onclick="event.stopPropagation();deleteDanceGroup('+d.dance_group_id+',\''+(d.name||'').replace(/'/g,'\\\'')+'\')">解散</button></div>';}).join('');
@@ -579,10 +641,26 @@ showDgDetail=async function(dgId){
 showDancerDetail=async function(dancerId){
   var dancers=await(await fetch(API+'/dancers')).json();var d=dancers.find(function(x){return x.dancer_id===dancerId;});if(!d)return;await loadDGCache();
   var stats=[];try{var sr=await fetch(API+'/dancers/'+dancerId+'/stats');stats=await sr.json();}catch(e){}
-  var dgName=d.dance_group_id?(dgCache[d.dance_group_id]||'舞团#'+d.dance_group_id):'未加入舞团';
-  var dgClick=d.dance_group_id?'<span style="color:var(--blue);cursor:pointer;text-decoration:underline" onclick="closeModal(\'modal-char\');showDgDetail('+d.dance_group_id+')">'+dgName+'</span>':'<span style="color:#999;">未加入舞团</span>';
-var rolesHtml='';if(stats.length){rolesHtml='<h4 style="margin-top:12px;color:var(--pink);">排练记录</h4><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">';stats.forEach(function(s){rolesHtml+='<div class="card" style="width:100px;padding:10px;text-align:center;cursor:pointer;border-top:3px solid '+(s.cheering_color||'#ccc')+';" onclick="closeModal(\'modal-char\');showCharDetail('+s.character_id+')"><strong style="font-size:0.85em;color:'+(s.cheering_color||'#666')+'">'+s.character_name+'</strong><br><small>'+s.play_count+'次</small></div>';});rolesHtml+='</div>';}
-var html='<div style="display:flex;gap:16px;align-items:flex-start;"><div style="width:60px;height:60px;border-radius:50%;background:var(--pink-light);display:flex;align-items:center;justify-content:center;font-size:1.5em;color:var(--pink);font-weight:700;">'+(d.cn_name||'?')[0]+'</div><div style="flex:1;"><h2 style="color:var(--pink);margin-bottom:2px;">'+(d.cn_name||'?')+'</h2><table style="font-size:0.85em;"><tr><td style="color:#999;width:60px;">舞团</td><td>'+dgClick+' <button class="btn btn-sm" style="padding:1px 8px;font-size:0.7em;vertical-align:middle;" onclick="closeModal(\'modal-char\');openEditDancer('+d.dancer_id+')">修改</button></td></tr>'+(d.qq?'<tr><td style="color:#999;">QQ</td><td>'+d.qq+'</td></tr>':'')+'</table></div></div>'+rolesHtml+'<div style="margin-top:16px;text-align:right;"><button class="btn" onclick="closeModal(\'modal-char\')">关闭</button></div>';
+  // 展示所有所属舞团（多团支持）
+  var groups = d.groups || [];
+  if (!groups.length && d.dance_group_id) groups = [{dance_group_id: d.dance_group_id, dance_group_name: dgCache[d.dance_group_id]||''}];
+  var dgHtml = groups.length
+    ? groups.map(function(g){return '<span class="tag" style="cursor:pointer;background:#e8f5e9;color:#2e7d32;margin:2px;" onclick="closeModal(\'modal-char\');showDgDetail('+g.dance_group_id+')">'+g.dance_group_name+'</span>';}).join(' ')
+    : '<span style="color:#999;">未加入舞团</span>';
+  var rolesHtml='';if(stats.length){rolesHtml='<h4 style="margin-top:12px;color:var(--pink);">出演角色统计</h4><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">';stats.forEach(function(s){rolesHtml+='<div class="card" style="width:100px;padding:10px;text-align:center;cursor:pointer;border-top:3px solid '+(s.cheering_color||'#ccc')+';" onclick="closeModal(\'modal-char\');showCharDetail('+s.character_id+')"><strong style="font-size:0.85em;color:'+(s.cheering_color||'#666')+'">'+s.character_name+'</strong><br><small>'+s.play_count+'次</small></div>';});rolesHtml+='</div>';}
+  // 获取该舞见的所有排练
+  var rehs=[];try{var rr=await fetch(API+'/dancers/'+dancerId+'/rehearsals');rehs=await rr.json();}catch(e){}
+  var rehsHtml='';
+  if(rehs.length){
+    rehsHtml='<h4 style="margin-top:16px;color:var(--pink);">所有排练 ('+rehs.length+'次)</h4><div style="max-height:300px;overflow-y:auto;margin-top:6px;">';
+    rehs.forEach(function(rh){
+      var cancelled=rh.status==='cancelled';
+      var charDot=rh.cheering_color?'<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+rh.cheering_color+';margin-right:4px;vertical-align:middle;"></span>':'';
+      rehsHtml+='<div class="rehearsal-item'+(cancelled?' cancelled':'')+'" style="cursor:pointer;margin-bottom:4px;" onclick="closeModal(\'modal-char\');showRehearsalDetail('+rh.rehearsal_id+')"><div class="info"><strong>'+charDot+rh.character_name+'</strong> · '+rh.dance_group_name+'<br>'+fmtDate(rh.rehearsal_date)+' '+(rh.start_time||'').slice(0,5)+'-'+(rh.end_time||'').slice(0,5)+' @'+rh.location+(cancelled?' <span style=\"color:#c62828;font-weight:700;\">[已取消]</span>':'')+'<br><small>'+(rh.content_summary||'')+'</small></div><span class="count '+(cancelled?'cancelled':'')+'">'+(cancelled?'已取消':'查看')+'</span></div>';
+    });
+    rehsHtml+='</div>';
+  }
+  var html='<div style="display:flex;gap:16px;align-items:flex-start;"><div style="width:60px;height:60px;border-radius:50%;background:var(--pink-light);display:flex;align-items:center;justify-content:center;font-size:1.5em;color:var(--pink);font-weight:700;">'+(d.cn_name||'?')[0]+'</div><div style="flex:1;"><h2 style="color:var(--pink);margin-bottom:2px;">'+(d.cn_name||'?')+'</h2><table style="font-size:0.85em;"><tr><td style="color:#999;width:60px;vertical-align:top;">所属舞团</td><td>'+dgHtml+' <button class="btn btn-sm" style="padding:1px 8px;font-size:0.7em;vertical-align:middle;" onclick="closeModal(\'modal-char\');openEditDancer('+d.dancer_id+')">修改</button></td></tr>'+(d.qq?'<tr><td style="color:#999;">QQ</td><td>'+d.qq+'</td></tr>':'')+'</table></div></div>'+rolesHtml+rehsHtml+'<div style="margin-top:16px;text-align:right;"><button class="btn" onclick="closeModal(\'modal-char\')">关闭</button></div>';
   document.getElementById('char-detail-content').innerHTML=html;
   document.getElementById('modal-char').classList.add('show');
 };
@@ -698,9 +776,16 @@ loadDancerList=async function(){
     dancers=await(await fetch(API+'/dancers')).json();
   }
   await loadDGCache();
-  // 按舞团筛选
-  if(dgId){dancers=dancers.filter(function(d){return d.dance_group_id===parseInt(dgId);});}
-  // 按CN名模糊搜索（可在角色搜索结果上叠加）
+  // 按舞团筛选（支持多团：检查主团和关联团）
+  if(dgId){
+    var targetDgId = parseInt(dgId);
+    dancers=dancers.filter(function(d){
+      if (d.dance_group_id === targetDgId) return true;
+      if (d.groups && d.groups.some(function(g){return g.dance_group_id === targetDgId;})) return true;
+      return false;
+    });
+  }
+  // 按CN名模糊搜索
   if(searchCN){dancers=dancers.filter(function(d){return d.cn_name.toLowerCase().includes(searchCN);});}
   // 按QQ搜索
   if(searchQQ){dancers=dancers.filter(function(d){return d.qq&&d.qq.includes(searchQQ);});}
@@ -711,7 +796,7 @@ loadDancerList=async function(){
   await Promise.all(dancers.map(async function(d){
     try{var sr=await fetch(API+'/dancers/'+d.dancer_id+'/stats');statsMap[d.dancer_id]=await sr.json();}catch(e){}
   }));
-  // 按舞团分组
+  // 按主舞团分组（多团成员显示在主团下，并带多团标识）
   var byDg={};
   dancers.forEach(function(d){
     var key=d.dance_group_id?String(d.dance_group_id):'__none__';
@@ -728,13 +813,18 @@ loadDancerList=async function(){
         var topColor=stats.length?stats[0].cheering_color||'#ff6b9d':'#eee';
         var topChar=stats.length?stats[0].character_name:'';
         var qqBadge=d.qq?'<span class="tag" style="font-size:0.65em;">QQ:'+d.qq+'</span>':'';
-        return'<div class="card dancer-card" style="border:2px solid '+topColor+';position:relative;" data-did="'+d.dancer_id+'" onclick="showDancerDetail('+d.dancer_id+')"><h3>'+d.cn_name+'</h3>'+qqBadge+(topChar?'<br><small style="color:#999;">偏好: '+topChar+'</small>':'')+'<button class="btn btn-sm dancer-edit-btn" style="position:absolute;top:10px;right:36px;padding:2px 8px;font-size:0.65em;background:var(--blue);color:#fff;z-index:2;" data-did="'+d.dancer_id+'">✎</button><button class="btn btn-danger btn-sm" style="position:absolute;top:10px;right:4px;padding:2px 8px;font-size:0.65em;" onclick="event.stopPropagation();deleteDancer('+d.dancer_id+')">×</button></div>';
+        // 多团标识
+        var extraGroups = d.groups ? d.groups.filter(function(g){return g.dance_group_id !== d.dance_group_id;}) : [];
+        var allGroups = d.groups || [];
+        var hasMultiple = allGroups.length > 1;
+        var multiBadge = extraGroups.length ? '<span title="同时隶属: '+extraGroups.map(function(g){return g.dance_group_name;}).join(', ')+'" style="display:inline-block;background:#fff3e0;color:#e65100;border-radius:10px;padding:0 5px;font-size:0.6em;margin-left:4px;vertical-align:middle;">+'+extraGroups.length+'团</span>' : '';
+        return'<div class="card dancer-card" style="border:2px solid '+topColor+';position:relative;" data-did="'+d.dancer_id+'" onclick="showDancerDetail('+d.dancer_id+')"><h3>'+d.cn_name+multiBadge+'</h3>'+qqBadge+(topChar?'<br><small style="color:#999;">偏好: '+topChar+'</small>':'')+'<button class="btn btn-sm dancer-edit-btn" style="position:absolute;top:10px;right:36px;padding:2px 8px;font-size:0.65em;background:var(--blue);color:#fff;z-index:2;" data-did="'+d.dancer_id+'">✎</button><button class="btn btn-danger btn-sm" style="position:absolute;top:10px;right:4px;padding:2px 8px;font-size:0.65em;" onclick="event.stopPropagation();removeDancerFromGroup('+d.dancer_id+','+(g.dgId||0)+',\''+(d.cn_name||'').replace(/'/g,'\\\'')+'\','+(hasMultiple?'true':'false')+')" title="'+(hasMultiple?'从当前舞团移除':'删除舞见')+'">×</button></div>';
       }).join('')+'</div>';
   }).join('');
   }catch(e){var le=document.getElementById('dancer-mgmt-list');if(le)le.innerHTML='<p style=\"color:#e53935;text-align:center;padding:40px;\">加载出错: '+e.message+'</p>';}
 };
 
-addDanceGroup=async function(){var n=document.getElementById('dg-new-name').value.trim();if(!n){alert('请输入舞团名称');return;}var agSel=document.getElementById('dg-new-anime-group');var agId=agSel&&agSel.value?parseInt(agSel.value):null;await fetch(API+'/dance-groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,anime_group_id:agId})});document.getElementById('dg-new-name').value='';if(agSel)agSel.value='';loadDgMgmt();try{var sel=document.getElementById('dancer-dg-filter');if(sel)loadDancerList();}catch(e){}};
+addDanceGroup=async function(){var n=document.getElementById('dg-new-name').value.trim();if(!n){alert('请输入舞团名称');return;}var agSel=document.getElementById('dg-new-anime-group');var agId=agSel&&agSel.value?parseInt(agSel.value):null;await fetch(API+'/dance-groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,anime_group_id:agId})});document.getElementById('dg-new-name').value='';if(agSel)agSel.value='';dgCache={};loadDgMgmt();try{var sel=document.getElementById('dancer-dg-filter');if(sel){sel.innerHTML='';loadDancerList();}}catch(e){}};
 deleteDanceGroup=async function(id,name){if(!confirm('确定解散舞团「'+name+'」？\n\n⚠ 这将同时删除：\n  • 该舞团所有舞见\n  • 该舞团所有排练及参与记录\n  • 该舞团所有曲目和演出\n\n此操作不可恢复！'))return;var res=await fetch(API+'/dance-groups/'+id,{method:'DELETE'});if(!res.ok){var e=await res.json();alert('解散失败：'+(e.error||'未知错误'));return;}loadDgMgmt();try{loadDancerList();}catch(e){}try{loadPerfView();}catch(e){}try{loadHome();}catch(e){}};
 openAddDancer=async function(){
   document.getElementById('dancer-modal-title').textContent='新建舞见';
@@ -743,12 +833,10 @@ openAddDancer=async function(){
   document.getElementById('f-dancer-dg').value='';
   document.getElementById('f-dancer-edit-id').value='';
   document.querySelector('#form-dancer button[type=submit]').textContent='确认新建';
-  // 填充舞团下拉
+  // 填充舞团下拉（每次打开都刷新，确保新舞团可见）
   var sel=document.getElementById('f-dancer-dg');
-  if(sel.options.length<=1){
-    var dgs=await(await fetch(API+'/dance-groups')).json();
-    sel.innerHTML='<option value="">暂不加入舞团</option>'+dgs.map(function(d){return'<option value="'+d.dance_group_id+'">'+d.name+'</option>';}).join('');
-  }
+  var dgs=await(await fetch(API+'/dance-groups')).json();
+  sel.innerHTML='<option value="">暂不加入舞团</option>'+dgs.map(function(d){return'<option value="'+d.dance_group_id+'">'+d.name+'</option>';}).join('');
   document.getElementById('modal-dancer-add').classList.add('show');
 };
 openEditDancer=async function(id,cn,qq,dgId){
@@ -765,10 +853,8 @@ openEditDancer=async function(id,cn,qq,dgId){
   document.getElementById('f-dancer-edit-id').value=id;
   document.querySelector('#form-dancer button[type=submit]').textContent='保存修改';
   var sel=document.getElementById('f-dancer-dg');
-  if(sel.options.length<=1){
-    var dgs=await(await fetch(API+'/dance-groups')).json();
-    sel.innerHTML='<option value="">暂不加入舞团</option>'+dgs.map(function(d){return'<option value="'+d.dance_group_id+'">'+d.name+'</option>';}).join('');
-  }
+  var dgs=await(await fetch(API+'/dance-groups')).json();
+  sel.innerHTML='<option value="">暂不加入舞团</option>'+dgs.map(function(d){return'<option value="'+d.dance_group_id+'">'+d.name+'</option>';}).join('');
   sel.value=dgId||'';
   document.getElementById('modal-dancer-add').classList.add('show');
 };
@@ -793,10 +879,28 @@ submitDancer=async function(e){
   loadDancerList();
   try{loadDgMgmt();}catch(e){}
 };
+// 将舞见从指定舞团中移除（不删人，保留排练记录）
+removeDancerFromGroup=async function(did, dgId, cn, hasMultiple){
+  var label = hasMultiple ? '确定将 '+cn+' 从当前舞团中移除？\n（保留其排练记录和其他舞团归属）' : '⚠ '+cn+' 只在本团，将从所有舞团移除。\n是否彻底删除此舞见？（将清除其所有排练参与记录）';
+  if(!confirm(label))return;
+  if(!hasMultiple){
+    // 只在一个团 → 彻底删除
+    await fetch(API+'/dancers/'+did,{method:'DELETE'});
+  } else {
+    // 多团 → 仅从当前团移除
+    await fetch(API+'/dancers/'+did+'/groups/'+dgId,{method:'DELETE'});
+  }
+  loadDancerList();
+  try{loadPerfView();}catch(e){}
+  try{loadHome();}catch(e){}
+};
+// 彻底删除舞见（从舞见详情页调用）
 deleteDancer=async function(id){if(!confirm('确定删除此舞见？\n\n⚠ 将同时删除其所有排练参与记录'))return;await fetch(API+'/dancers/'+id,{method:'DELETE'});loadDancerList();try{loadPerfView();}catch(e){}try{loadHome();}catch(e){}};
 
 // ── Rehearsal add form
+var rehAssignments={}, pendingRehCharId=null, pendingRehDgId=null;
 async function openAddRehearsal(){
+  rehAssignments={}; pendingRehCharId=null; pendingRehDgId=null;
   var dgs=await(await fetch(API+'/dance-groups')).json();
   var sel=document.getElementById('f-dg-sel');
   sel.innerHTML='<option value="">选择已有舞团…</option>'+dgs.map(function(d){return'<option value="'+d.dance_group_id+'">'+d.name+(d.anime_group_name?' — 翻跳 '+d.anime_group_name:'')+'</option>';}).join('');
@@ -807,15 +911,120 @@ async function openAddRehearsal(){
   document.getElementById('f-start').value='14:00';
   document.getElementById('f-end').value='16:00';
   document.getElementById('f-loc').value='';
-  document.getElementById('f-max').value='0';
   document.getElementById('f-desc').value='';
+  document.getElementById('reh-init-chars').style.display='none';
+  document.getElementById('reh-init-grid').innerHTML='';
   document.getElementById('modal-rehearsal').classList.add('show');
 }
-function onDgSelect(){
+async function onDgSelect(){
   var selVal=document.getElementById('f-dg-sel').value;
   var newInput=document.getElementById('f-dg-new');
   newInput.style.display=selVal?'none':'block';
   if(selVal)newInput.value='';
+  rehAssignments={}; pendingRehDgId=selVal?parseInt(selVal):null;
+  var charsDiv=document.getElementById('reh-init-chars');
+  var grid=document.getElementById('reh-init-grid');
+  if(!selVal){charsDiv.style.display='none';grid.innerHTML='';return;}
+  try{
+    var dg=await(await fetch(API+'/dance-groups/'+selVal)).json();
+    if(!dg.anime_group_id){charsDiv.style.display='none';grid.innerHTML='';return;}
+    var group=await(await fetch(API+'/groups/'+dg.anime_group_id)).json();
+    var chars=group.members||[];
+    if(!chars.length){charsDiv.style.display='none';grid.innerHTML='';return;}
+    renderRehInitGrid(chars);
+    charsDiv.style.display='block';
+  }catch(e){charsDiv.style.display='block';grid.innerHTML='<p style=\"color:#e53935;font-size:0.8em;\">加载角色失败: '+e.message+'</p>';}
+}
+function renderRehInitGrid(chars){
+  var grid=document.getElementById('reh-init-grid');
+  grid.innerHTML=chars.map(function(c){
+    var assigned=rehAssignments[c.character_id];
+    var label=assigned?'<span style=\"color:#333;font-weight:700;\">'+assigned.cn_name+'</span><br><small style=\"color:#999;\">'+(assigned.inGroup?'✓ 本团':'↗ 拉入舞团')+'</small>':'<span style=\"color:#999;\">点击指派</span>';
+    return'<div class=\"card reh-init-card\" style=\"width:110px;padding:8px;text-align:center;cursor:pointer;border:2px solid '+(c.cheering_color||'#eee')+';background:'+(assigned?'#e8f5e9':'#fff')+';position:relative;\" data-cid=\"'+c.character_id+'\" onclick=\"openRehAssign('+c.character_id+')\"><div style=\"font-size:0.8em;font-weight:700;color:'+(c.cheering_color||'#666')+';\">'+c.name+'</div><div style=\"font-size:0.72em;margin-top:3px;\">'+label+'</div>'+(assigned?'<button class=\"btn btn-sm\" style=\"position:absolute;top:2px;right:2px;padding:0 5px;font-size:0.6em;\" onclick=\"event.stopPropagation();delete rehAssignments['+c.character_id+'];renderRehInitGrid(chars);\">×</button>':'')+'</div>';
+  }).join('');
+}
+async function openRehAssign(charId){
+  pendingRehCharId=charId;
+  var html='<h3>指派舞见</h3>';
+  // 加载推荐
+  var recs=[];
+  try{
+    var rr=await fetch(API+'/dancers/recommend?dance_group_id='+pendingRehDgId+'&character_id='+charId);
+    recs=await rr.json();
+  }catch(e){}
+  if(recs.in_group&&recs.in_group.length){
+    html+='<div style=\"margin-bottom:8px;\"><span style=\"font-size:0.8em;color:#999;\">📌 本团推荐</span></div>';
+    html+='<div style=\"display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;\">';
+    recs.in_group.forEach(function(d){
+      html+='<div class=\"card\" style=\"width:100px;padding:8px;text-align:center;cursor:pointer;border:2px solid #66bb6a;background:#e8f5e9;\" onclick=\"selectRehDancer('+d.dancer_id+',\''+(d.cn_name||'').replace(/'/g,'\\\'')+'\','+pendingRehDgId+')\"><strong style=\"font-size:0.8em;\">'+d.cn_name+'</strong><br><small style=\"color:#999;\">'+d.play_count+'次</small></div>';
+    });
+    html+='</div>';
+  }
+  if(recs.other_group&&recs.other_group.length){
+    html+='<div style=\"margin-bottom:8px;\"><span style=\"font-size:0.8em;color:#999;\">🔗 别团演过此角色</span></div>';
+    html+='<div style=\"display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;\">';
+    recs.other_group.forEach(function(d){
+      html+='<div class=\"card\" style=\"width:100px;padding:8px;text-align:center;cursor:pointer;border:2px solid #ff9800;background:#fff8e1;\" onclick=\"selectRehDancer('+d.dancer_id+',\''+(d.cn_name||'').replace(/'/g,'\\\'')+'\','+(d.dance_group_id||0)+','+pendingRehDgId+')\"><strong style=\"font-size:0.8em;\">'+d.cn_name+'</strong><br><small style=\"color:#999;\">'+(d.dance_group_name||'')+' · '+d.play_count+'次</small></div>';
+    });
+    html+='</div>';
+  }
+  html+='<input type=\"text\" id=\"reh-assign-search\" placeholder=\"搜索舞见CN或QQ…\" style=\"width:100%;padding:10px;border-radius:8px;border:2px solid #eee;margin-bottom:8px;\" oninput=\"searchRehDancers()\">';
+  html+='<div id=\"reh-assign-results\" style=\"max-height:220px;overflow-y:auto;\"></div>';
+  html+='<div id=\"reh-assign-new\" style=\"display:none;margin-top:10px;padding:10px;background:#fdf6f8;border-radius:8px;\">';
+  html+='<p style=\"font-size:0.85em;color:#999;\">未找到，新建舞见：</p>';
+  html+='<input type=\"text\" id=\"reh-assign-new-cn\" placeholder=\"CN名（必填）\" style=\"width:100%;padding:8px;border-radius:8px;border:2px solid #eee;margin-bottom:6px;\">';
+  html+='<input type=\"text\" id=\"reh-assign-new-qq\" placeholder=\"QQ号（必填）\" style=\"width:100%;padding:8px;border-radius:8px;border:2px solid #eee;margin-bottom:6px;\">';
+  html+='<button class=\"btn btn-primary btn-sm\" onclick=\"createAndAssignReh()\">新建并指派</button></div>';
+  html+='<div style=\"margin-top:10px;text-align:right;\"><button class=\"btn\" onclick=\"closeModal(\'modal-sub\')\">取消</button></div>';
+  document.getElementById('modal-sub-content').innerHTML=html;
+  document.getElementById('modal-sub').classList.add('show');
+  setTimeout(function(){var inp=document.getElementById('reh-assign-search');if(inp)inp.focus();},100);
+}
+async function searchRehDancers(){
+  var q=document.getElementById('reh-assign-search').value.trim();
+  var results=document.getElementById('reh-assign-results');
+  var newForm=document.getElementById('reh-assign-new');
+  if(!q){results.innerHTML='';newForm.style.display='none';return;}
+  var dancers=await(await fetch(API+'/dancers/search?q='+encodeURIComponent(q))).json();
+  newForm.style.display='block';
+  if(!dancers.length){results.innerHTML='<p style=\"color:#999;font-size:0.85em;\">未找到匹配舞见</p>';return;}
+  results.innerHTML=dancers.map(function(d){
+    var inThisDg=(d.dance_group_id===pendingRehDgId);
+    var badge=inThisDg?'<span class=\"tag\" style=\"font-size:0.65em;background:#66bb6a;color:#fff;\">本团</span>':'<span class=\"tag\" style=\"font-size:0.65em;background:#ff9800;color:#fff;\">其他团</span>';
+    var hint=inThisDg?'':'<br><small style=\"color:#ff9800;\">↗ 选择后将拉入本舞团</small>';
+    return'<div style=\"display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f0f0f0;cursor:pointer;\" onclick=\"selectRehDancer('+d.dancer_id+',\''+(d.cn_name||'').replace(/'/g,'\\\'')+'\','+(d.dance_group_id||0)+')\"><div><strong>'+d.cn_name+'</strong> '+badge+'<br><small style=\"color:#999;\">QQ:'+(d.qq||'')+' · '+(d.dance_group_name||'')+'</small>'+hint+'</div><span class=\"tag\" style=\"font-size:0.7em;\">选择</span></div>';
+  }).join('');
+}
+async function selectRehDancer(dancerId, cn, dgId){
+  var inGroup=(dgId===pendingRehDgId);
+  var msg=inGroup?'确定指派 '+cn+' 到此角色？':'⚠ '+cn+' 不在当前舞团中。\n\n选择她后将把她拉入本舞团（她可同时属于多个舞团）。\n\n确定继续？';
+  if(!confirm(msg))return;
+  rehAssignments[pendingRehCharId]={dancer_id:dancerId,cn_name:cn,inGroup:inGroup};
+  closeModal('modal-sub');
+  try{
+    var dg=await(await fetch(API+'/dance-groups/'+pendingRehDgId)).json();
+    if(dg.anime_group_id){
+      var group=await(await fetch(API+'/groups/'+dg.anime_group_id)).json();
+      renderRehInitGrid(group.members||[]);
+    }
+  }catch(e){}
+}
+async function createAndAssignReh(){
+  var cn=document.getElementById('reh-assign-new-cn').value.trim();
+  var qq=document.getElementById('reh-assign-new-qq').value.trim();
+  if(!cn||!qq){alert('CN和QQ均为必填');return;}
+  var res=await fetch(API+'/dancers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cn_name:cn,qq:qq,dance_group_id:null})});
+  if(!res.ok){alert('创建失败');return;}
+  var dancer=await res.json();
+  rehAssignments[pendingRehCharId]={dancer_id:dancer.dancer_id,cn_name:cn,inGroup:false};
+  closeModal('modal-sub');
+  try{
+    var dg=await(await fetch(API+'/dance-groups/'+pendingRehDgId)).json();
+    if(dg.anime_group_id){
+      var group=await(await fetch(API+'/groups/'+dg.anime_group_id)).json();
+      renderRehInitGrid(group.members||[]);
+    }
+  }catch(e){}
 }
 async function addRehearsal(e){
   e.preventDefault();
@@ -833,7 +1042,12 @@ async function addRehearsal(e){
   var startTime=document.getElementById('f-start').value,endTime=document.getElementById('f-end').value,loc=document.getElementById('f-loc').value;
   if(!loc.trim()){alert('请输入排练地点');return;}
   if(startTime>=endTime){alert('结束时间必须晚于开始时间');return;}
-  var body={dance_group_id:dgId,rehearsal_date:document.getElementById('f-date').value,start_time:startTime,end_time:endTime,location:loc,max_participants:parseInt(document.getElementById('f-max').value)||0,content_summary:document.getElementById('f-desc').value.trim()||null};
+  var participants=[];
+  Object.keys(rehAssignments).forEach(function(cid){
+    var a=rehAssignments[cid];
+    participants.push({character_id:parseInt(cid),cn_name:a.cn_name,dancer_id:a.dancer_id});
+  });
+  var body={dance_group_id:dgId,rehearsal_date:document.getElementById('f-date').value,start_time:startTime,end_time:endTime,location:loc,content_summary:document.getElementById('f-desc').value.trim()||null,participants:participants};
   var res=await fetch(API+'/rehearsals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!res.ok){var err=await res.json();alert('添加失败：'+(err.error||'未知错误'));return;}
   closeModal('modal-rehearsal');
@@ -846,7 +1060,10 @@ function closeModal(id){document.getElementById(id).classList.remove('show');}
 // ── Event bindings
 function safeOn(id,ev,fn){var el=document.getElementById(id);if(el)el.addEventListener(ev,fn);}
 safeOn('group-filter-project','change',loadGroups);
-safeOn('char-search','input',loadCharacters);
+safeOn('char-search','input',function(){
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadCharacters, 300);
+});
 safeOn('char-filter-age','change',loadCharacters);
 safeOn('reh-filter-status','change',loadPerfView);
 safeOn('reh-date-from','change',loadPerfView);
