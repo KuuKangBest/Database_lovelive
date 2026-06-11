@@ -170,6 +170,17 @@ app.post('/api/dance-groups', async (req, res) => {
 
 // ========== 舞见 API ==========
 
+app.get('/api/dancers/search', async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json([]);
+  const [rows] = await pool.query(
+    `SELECT d.*, dg.name AS dance_group_name FROM dancer d
+     LEFT JOIN dance_group dg ON d.dance_group_id=dg.dance_group_id
+     WHERE d.cn_name LIKE ? ORDER BY d.cn_name LIMIT 10`,
+    ['%'+q+'%']);
+  res.json(rows);
+});
+
 app.get('/api/dancers', async (req, res) => {
   const { dance_group_id } = req.query;
   let sql = 'SELECT * FROM dancer';

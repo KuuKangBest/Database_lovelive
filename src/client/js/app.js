@@ -241,6 +241,53 @@ async function buildRehModal(rehId){
   }catch(e){el.innerHTML='<p style="color:#e53935;">加载失败: '+e.message+'</p>';}
 }
 
+// ── 指派舞见弹窗（搜索 + 新建）
+showAssignPopup=function(rehId, charId){
+  var html='<h3>指派舞见</h3>';
+  html+='<input type="text" id="assign-search" placeholder="搜索舞见CN..." style="width:100%;padding:10px;border-radius:8px;border:2px solid #eee;margin-bottom:8px;" oninput="searchDancers('+rehId+','+charId+')">';
+  html+='<div id="assign-results" style="max-height:200px;overflow-y:auto;"></div>';
+  html+='<div id="assign-new-form" style="display:none;margin-top:10px;padding:10px;background:#fdf6f8;border-radius:8px;">';
+  html+='<p style="font-size:0.85em;color:#999;">未找到，新建舞见：</p>';
+  html+='<input type="text" id="assign-new-cn" placeholder="CN名（必填）" style="width:100%;padding:8px;border-radius:8px;border:2px solid #eee;margin-bottom:6px;">';
+  html+='<input type="text" id="assign-new-qq" placeholder="QQ号（必填）" style="width:100%;padding:8px;border-radius:8px;border:2px solid #eee;margin-bottom:6px;">';
+  html+='<button class="btn btn-primary btn-sm" onclick="createAndAssign('+rehId+','+charId+')">新建并指派</button></div>';
+  html+='<div style="margin-top:10px;text-align:right;"><button class="btn" onclick="closeModal(\'modal-sub\')">取消</button></div>';
+  document.getElementById('modal-sub-content').innerHTML=html;
+  document.getElementById('modal-sub').classList.add('show');
+  setTimeout(function(){document.getElementById('assign-search').focus();},100);
+};
+
+searchDancers=async function(rehId, charId){
+  var q=document.getElementById('assign-search').value.trim();
+  var results=document.getElementById('assign-results');
+  var newForm=document.getElementById('assign-new-form');
+  if(!q){results.innerHTML='';newForm.style.display='none';return;}
+  var dancers=await(await fetch(API+'/dancers/search?q='+encodeURIComponent(q))).json();
+  if(!dancers.length){results.innerHTML='<p style="color:#999;font-size:0.85em;">未找到匹配舞见</p>';newForm.style.display='block';return;}
+  newForm.style.display='block';
+  results.innerHTML=dancers.map(function(d){
+    return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="selectDancerAssign('+rehId+','+charId+','+d.dancer_id+',\''+(d.cn_name||'').replace(/'/g,'')+'\')"><div><strong>'+d.cn_name+'</strong><br><small style="color:#999;">'+d.qq+' · '+(d.dance_group_name||'')+'</small></div><span class="tag" style="font-size:0.7em;">选择</span></div>';
+  }).join('');
+};
+
+selectDancerAssign=async function(rehId, charId, dancerId, cn){
+  if(!confirm('选择舞见 '+cn+'？'))return;
+  var r=await fetch(API+'/rehearsals/'+rehId+'/participants',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dancer_id:dancerId,character_id:charId})});
+  if(!r.ok){alert('指派失败');return;}
+  closeModal('modal-sub');
+  buildRehModal(rehId);try{loadPerfView();}catch(e){}
+};
+
+createAndAssign=async function(rehId, charId){
+  var cn=document.getElementById('assign-new-cn').value.trim();
+  var qq=document.getElementById('assign-new-qq').value.trim();
+  if(!cn||!qq){alert('CN和QQ均为必填');return;}
+  var r=await fetch(API+'/rehearsals/'+rehId+'/participants/simple',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:charId,cn_name:cn,qq:qq})});
+  if(!r.ok){alert('指派失败');return;}
+  closeModal('modal-sub');
+  buildRehModal(rehId);try{loadPerfView();}catch(e){}
+};
+
 // 统一操作：addDancer / delDancer
 doRehAction=async function(action,rehId,cid,pid){
   if(action==='editDancer'){
@@ -253,10 +300,7 @@ doRehAction=async function(action,rehId,cid,pid){
       await fetch(API+'/rehearsals/'+rehId+'/participants/simple',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:cid,cn_name:cn})});
     }
   }else if(action==='addDancer'){
-    var cn=prompt('指派舞见 CN名：');if(!cn)return;
-    var qq=prompt('舞见QQ号（可选）：')||'';
-    var r=await fetch(API+'/rehearsals/'+rehId+'/participants/simple',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:cid,cn_name:cn,qq:qq||undefined})});
-    if(!r.ok){alert('指派失败');return;}
+    showAssignPopup(rehId, cid); return;
   }else if(action==='delDancer'){
     if(!confirm('确定删除此舞见？'))return;
     await fetch(API+'/rehearsals/'+rehId+'/participants/'+pid,{method:'DELETE'});
