@@ -175,7 +175,7 @@ async function showRelationGraph(charId){
 }
 
 // ── Rehearsal views
-var dgGradients = {1:'#ff8c42,#ffab6e',2:'#42a5f5,#64b5f6',3:'#ab47bc,#ce93d8',4:'#66bb6a,#81c784',7:'#ef5350,#ff6e6e',8:'#ffa726,#ffb74d',9:'#78909c,#a0aeb8'};
+var dgGradients = {1:'#ff8c42,#ffab6e',2:'#42a5f5,#64b5f6',3:'#ab47bc,#ce93d8',4:'#66bb6a,#81c784',5:'#26c6da,#4dd0e1',6:'#e91e63,#f06292',7:'#ef5350,#ff6e6e',8:'#ffa726,#ffb74d',9:'#78909c,#a0aeb8'};
 loadRehPage = function(){ loadPerfView(); };
 loadPerfView = async function(){
   await loadDGCache();
@@ -196,7 +196,7 @@ loadPerfView = async function(){
     var grad=dgGradients[g.dgId]||'#ff6b9d,#e878a8';
     html+='<div style="margin:20px 0 8px;padding:12px 16px;background:linear-gradient(135deg,'+grad+');border-radius:12px;color:#fff;"><strong style="font-size:1.1em;">曲目: '+g.song+'</strong><span style="margin-left:12px;font-size:0.85em;opacity:0.8;">'+g.dgName+' · '+g.rehs.length+'次</span></div>';
     g.rehs.forEach(function(rh){
-      html+='<div class="rehearsal-item" style="cursor:pointer;margin-left:8px;margin-bottom:4px;border-left-color:'+(dgGradients[g.dgId]||'#ff6b9d').split(',')[0]+';" onclick="showRehearsalDetail('+rh.rehearsal_id+')"><div class="info"><strong>'+(rh.stage_type||'排练')+'</strong> · '+fmtDate(rh.rehearsal_date)+' '+(rh.start_time||'').slice(0,5)+'-'+(rh.end_time||'').slice(0,5)+' @'+rh.location+'</div><span class="count '+(rh.occupancy_status||'')+'">'+rh.current_participants+'人</span></div>';
+      html+='<div class="rehearsal-item" style="cursor:pointer;margin-left:8px;margin-bottom:4px;border-left-color:'+(dgGradients[g.dgId]||'#ff6b9d').split(',')[0]+';" onclick="showRehearsalDetail('+rh.rehearsal_id+')"><div class="info"><strong>'+(rh.stage_type||'排练')+'</strong> · '+fmtDate(rh.rehearsal_date)+' '+(rh.start_time||'').slice(0,5)+'-'+(rh.end_time||'').slice(0,5)+' @'+rh.location+'</div><span class="count '+(rh.occupancy_status||'')+'">'+rh.current_participants+'/'+rh.max_participants+'人</span></div>';
     });
   });
   document.getElementById('rehearsal-list').innerHTML=html||'<p style="color:#999;">暂无排练</p>';
@@ -208,17 +208,24 @@ async function renderRehDetail(rehId){
   var parts=reh.participants||[];
   var dgRes=await fetch(API+'/dance-groups/'+reh.dance_group_id);var dg=await dgRes.json();
   var excluded=reh.excluded_chars?reh.excluded_chars.split(',').map(Number):[];
+  var extra=reh.extra_chars?reh.extra_chars.split(',').map(Number):[];
   var allChars=[];
   if(dg.anime_group_id){
     var grRes=await fetch(API+'/groups/'+dg.anime_group_id);var group=await grRes.json();
     allChars=(group.members||[]).filter(function(c){return excluded.indexOf(c.character_id)===-1;});
   }
+  // 跨团新增角色
+  if(extra.length){
+    var cr=await fetch(API+'/characters');var extraChars=await cr.json();
+    extraChars=extraChars.filter(function(c){return extra.indexOf(c.character_id)>=0;});
+    allChars=allChars.concat(extraChars);
+  }
   var partMap={};parts.forEach(function(p){partMap[p.character_id]={cn:p.cn_name,pid:p.participation_id};});
   var filled=Object.keys(partMap).length;
   var cards=allChars.map(function(c){
     var p=partMap[c.character_id];var color=c.cheering_color||'#ccc';
-    if(p) return '<div class="reh-part-card filled" data-cid="'+c.character_id+'" style="--card-color:'+color+'" onclick="editDancerInDetail('+rehId+','+c.character_id+',\''+p.cn+'\','+p.pid+')"><div class="rpc-char" style="color:'+color+'">'+c.name+'</div><div class="rpc-dancer">'+p.cn+'</div></div>';
-    return '<div class="reh-part-card missing" data-cid="'+c.character_id+'" onclick="assignDancerInDetail('+rehId+','+c.character_id+')"><div class="rpc-char">'+c.name+'</div><div class="rpc-status">+ 空缺</div></div>';
+    if(p) return '<div class="reh-part-card filled" data-cid="'+c.character_id+'" data-reh="'+rehId+'" data-cn="'+p.cn+'" data-pid="'+p.pid+'" style="--card-color:'+color+'" onclick="rehCardClick(this)"><div class="rpc-char" style="color:'+color+'">'+c.name+'</div><div class="rpc-dancer">'+p.cn+'</div></div>';
+    return '<div class="reh-part-card missing" data-cid="'+c.character_id+'" data-reh="'+rehId+'" onclick="rehCardClick(this)"><div class="rpc-char">'+c.name+'</div><div class="rpc-status">+ 空缺</div></div>';
   }).join('');
 
   var html='<div style="padding:12px 16px;background:linear-gradient(135deg,#ff6b9d,#e878a8);border-radius:12px;color:#fff;margin-bottom:14px;"><strong style="font-size:1.1em;">曲目: '+(reh.content_summary||'排练')+'</strong><br><span style="font-size:0.8em;opacity:0.8;">'+(dgCache[reh.dance_group_id]||'?')+' · '+fmtDate(reh.rehearsal_date)+'</span></div>';
@@ -230,7 +237,7 @@ async function renderRehDetail(rehId){
   document.getElementById('modal-char').classList.add('show');
 }
 
-editDancerInDetail=function(rehId,charId,cn,partId){var ncn=prompt('修改CN（留空删除）：',cn);if(ncn===null)return;if(ncn===''){if(confirm('删除？')){fetch(API+'/rehearsals/'+rehId+'/participants/'+partId,{method:'DELETE'}).then(function(){renderRehDetail(rehId);});}}else if(ncn!==cn){fetch(API+'/rehearsals/'+rehId+'/participants/'+partId,{method:'DELETE'}).then(function(){assignByName(rehId,charId,ncn);});}};
+editDancerInDetail=function(rehId,charId,cn,partId){var ncn=prompt('修改CN（留空删除）：',cn);if(ncn===null)return;if(ncn===''){if(confirm('删除？')){fetch(API+'/rehearsals/'+rehId+'/participants/'+partId,{method:'DELETE'}).then(function(){renderRehDetail(rehId);loadPerfView();});}}else if(ncn!==cn){fetch(API+'/rehearsals/'+rehId+'/participants/'+partId,{method:'DELETE'}).then(function(){assignByName(rehId,charId,ncn);});}};
 assignDancerInDetail=function(rehId,charId){var cn=prompt('指派舞见CN：');if(!cn)return;assignByName(rehId,charId,cn);};
 assignByName=async function(rehId,charId,cn){
   var reh=await(await fetch(API+'/rehearsals/'+rehId)).json();var dgId=reh.dance_group_id;
@@ -239,20 +246,36 @@ assignByName=async function(rehId,charId,cn){
   if(df)dancerId=df.dancer_id;
   else{var cd=await fetch(API+'/dancers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dance_group_id:dgId,cn_name:cn})});dancerId=(await cd.json()).dancer_id;}
   var pr=await fetch(API+'/rehearsals/'+rehId+'/participants',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dancer_id:dancerId,character_id:charId})});
-  if(!pr.ok){var e=await pr.json();alert(e.error);}else renderRehDetail(rehId);
+  if(!pr.ok){var e=await pr.json();alert(e.error);}else{renderRehDetail(rehId);loadPerfView();}
 };
 toggleSlotEdit=function(rehId){
   var grid=document.getElementById('reh-detail-grid');if(!grid)return;
   var editing=!grid.classList.contains('editing');
   if(editing){grid.classList.add('editing');}else{grid.classList.remove('editing');}
   grid.querySelectorAll('.reh-part-card').forEach(function(card){
-    if(editing){card.classList.add('shaking');card.style.cursor='pointer';
-      card.onclick=function(){var cid=parseInt(card.dataset.cid);if(cid&&confirm(card.classList.contains('filled')?'移除此角色卡片？（已有舞见将被一并移除）':'移除此角色卡片？'))fetch(API+'/rehearsals/'+rehId+'/chars/'+cid,{method:'DELETE'}).then(function(){renderRehDetail(rehId);});};}
-    else{card.classList.remove('shaking');card.style.cursor='';
-      if(card.classList.contains('missing'))card.onclick=function(){assignDancerInDetail(rehId,parseInt(card.dataset.cid));};
-      else{var p=card.querySelector('.rpc-dancer').textContent;var cid=parseInt(card.dataset.cid);card.onclick=function(){editDancerInDetail(rehId,cid,p,0);};}}
+    if(editing){card.classList.add('shaking');}else{card.classList.remove('shaking');}
   });
   if(editing) showExcludedPicker(rehId); else {var pk=document.getElementById('excluded-picker-'+rehId);if(pk)pk.remove();}
+};
+
+rehCardClick=function(card){
+  var cid=parseInt(card.getAttribute('data-cid'));
+  var rehId=parseInt(card.getAttribute('data-reh'));
+  var grid=document.getElementById('reh-detail-grid');
+  var isEditing=grid&&grid.classList.contains('editing');
+  if(isEditing){
+    if(!confirm('确定移除此角色卡片？'))return;
+    fetch(API+'/rehearsals/'+rehId+'/chars/'+cid,{method:'DELETE'}).then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    }).then(function(){
+      try{renderRehDetail(rehId);}catch(e){}
+      try{loadPerfView();}catch(e){}
+    }).catch(function(e){alert('删除出错:'+e.message);});
+  }else{
+    if(card.classList.contains('missing')){assignDancerInDetail(rehId,cid);}
+    else{var cn=card.getAttribute('data-cn')||'';var pid=parseInt(card.getAttribute('data-pid'))||0;editDancerInDetail(rehId,cid,cn,pid);}
+  }
 };
 
 // ── 已移除角色 & 添加角色
@@ -269,7 +292,7 @@ showExcludedPicker=async function(rehId){
   pk.innerHTML='<span style="color:#999;">已移除：</span> '+list.map(function(c){return'<span class="tag" style="cursor:pointer;background:#fce4ec;color:#c62828;margin:2px;" onclick="reAddChar('+rehId+','+c.character_id+')" title="点击加回">'+c.name+' ↗</span>';}).join(' ');
   el.appendChild(pk);
 };
-reAddChar=function(rehId,charId){fetch(API+'/rehearsals/'+rehId+'/chars',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:charId})}).then(function(){renderRehDetail(rehId);setTimeout(function(){toggleSlotEdit(rehId);},200);});};
+reAddChar=function(rehId,charId){fetch(API+'/rehearsals/'+rehId+'/chars',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({character_id:charId})}).then(function(){renderRehDetail(rehId);});};
 addNewCharSlot=function(rehId,charId){fetch(API+'/rehearsals/'+rehId+'/slots/'+charId,{method:'POST'}).then(function(){renderRehDetail(rehId);});};
 
 openAddCharPopup=async function(rehId){

@@ -50,6 +50,11 @@ INSERT INTO concert (project_id, label, name, concert_date) VALUES
 (5,'3巡','莲之空 Live & Fan Meeting TRY TRY UNITY!!!','2025-02-08'),
 (5,'Fes','莲之空 103期 Fes×ReC：LIVE 〜first crossing〜','2024-03-30'),
 
+-- 青鸟（人生不易部）──
+(7,'首单','《What is my LIFE?》发行','2025-07-30'),
+(7,'1巡','人生不易部！1st LIVE 〜What is my L ?〜','2026-02-13'),
+(7,'2巡','人生不易部！2nd LIVE（预定）','2026-09-01'),
+
 -- 系列联合 / 拼盘
 (NULL,'拼盘','LoveLive! Series 9th Anniversary LOVE LIVE! FEST','2020-01-18'),
 (NULL,'拼盘','COUNTDOWN LoveLive! 2021→2022 〜LIVE with a smile!〜','2021-12-31'),

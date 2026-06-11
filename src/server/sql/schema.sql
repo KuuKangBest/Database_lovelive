@@ -54,7 +54,10 @@ CREATE TABLE `character` (
     birthday     VARCHAR(5),
     blood_type   ENUM('A','B','AB','O','不明'),
     height       DECIMAL(5,1),
-    hobby        VARCHAR(500),
+    hobby          VARCHAR(500),
+    cheering_color VARCHAR(7),
+    call_response  VARCHAR(200),
+    eye_color      VARCHAR(20),
     FOREIGN KEY (group_id) REFERENCES anime_group(group_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (cv_id) REFERENCES cv(cv_id)
@@ -94,6 +97,11 @@ CREATE TABLE rehearsal (
     location         VARCHAR(200) NOT NULL,
     max_participants INT DEFAULT 0,
     content_summary  TEXT,
+    stage_type       VARCHAR(20) DEFAULT '排练',
+    excluded_chars   TEXT,
+    extra_chars      TEXT,
+    song_id          INT,
+    performance_id   INT,
     FOREIGN KEY (dance_group_id) REFERENCES dance_group(dance_group_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
     INDEX idx_reh_date (rehearsal_date),
@@ -115,6 +123,32 @@ CREATE TABLE rehearsal_participation (
     INDEX idx_rp_rehearsal (rehearsal_id),
     INDEX idx_rp_dancer (dancer_id),
     INDEX idx_rp_character (character_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS concert (
+  concert_id INT AUTO_INCREMENT PRIMARY KEY,
+  project_id INT NULL,
+  label VARCHAR(20) NOT NULL,
+  name VARCHAR(200) NOT NULL,
+  concert_date DATE,
+  FOREIGN KEY (project_id) REFERENCES project(project_id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS song (
+  song_id INT AUTO_INCREMENT PRIMARY KEY,
+  dance_group_id INT NOT NULL,
+  name VARCHAR(200) NOT NULL,
+  FOREIGN KEY (dance_group_id) REFERENCES dance_group(dance_group_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS performance (
+  performance_id INT AUTO_INCREMENT PRIMARY KEY,
+  dance_group_id INT NOT NULL,
+  name VARCHAR(200) NOT NULL,
+  performance_date DATE,
+  venue VARCHAR(200),
+  description TEXT,
+  FOREIGN KEY (dance_group_id) REFERENCES dance_group(dance_group_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- ========================================

@@ -9,7 +9,8 @@ INSERT INTO project (project_id, name, description, start_date, end_date) VALUES
 (2, 'LoveLive! Sunshine!!', '第二弹企划，以静冈县沼津市浦之星女学院为舞台。Aqours于2015年成团。', '2015-04-30', NULL),
 (3, 'LoveLive! 虹咲学园', '以东京台场虹咲学园为舞台，采用个人独立偶像体制。原为手游ALL STARS中登场。', '2017-09-21', NULL),
 (4, 'LoveLive! Superstar!!', '以结丘女子高等学校为舞台，Liella!通过三期招募扩展到11人。首次有中国籍角色登场。', '2020-07-14', NULL),
-(5, 'Link! Like! LoveLive!', '以石川县金泽市莲之空女学院为舞台，结合VTuber直播。角色随现实时间毕业。', '2022-02-28', NULL);
+(5, 'Link! Like! LoveLive!', '以石川县金泽市莲之空女学院为舞台，结合VTuber直播。角色随现实时间毕业。', '2022-02-28', NULL),
+(7, '生如百戏难！LOVELIVE! 青鸟', '2025年5月启动的LoveLive!系列第六个主要企划。以网校制高中「Love学院高等中学」(L高)为舞台，主题为人生不易。以社交媒体为核心传播渠道。', '2025-05-12', NULL);
 
 -- 动漫团
 INSERT INTO anime_group (group_id, project_id, name, description, representative_works, history, founding_date, disband_date) VALUES
@@ -20,7 +21,8 @@ INSERT INTO anime_group (group_id, project_id, name, description, representative
 (5, 5, '莲之空女学院学园偶像俱乐部', 'Link! Like! LoveLive!的学园偶像团体。', 'Dream Believers\nOn your mark', '2022年2月启动。首个采用真实时间毕业制的团体，结合VTuber直播。102期生已毕业，现有103-105期在校生8人。2026年上映剧场版。', '2022-02-28', NULL),
 (6, 1, 'A-RISE', 'LoveLive!动画中UTX高中的学园偶像团体，μ''s的对手。', 'Private Wars\nShocking Party', '在动画第一季中作为μ''s的竞争对手登场，曾获第一届LoveLive大赛冠军。', '2010-01-01', NULL),
 (7, 2, 'Saint Snow', 'LoveLive! Sunshine!!中函馆圣泉女子高等学院的学园偶像团体。', 'SELF CONTROL!!\nDROPOUT!?\nBelieve again', '鹿角姐妹二人组成的团体，是Aqours在LoveLive大赛中的强劲对手。', '2015-01-01', NULL),
-(8, 4, 'Sunny Passion', 'LoveLive! Superstar!!中神津女子高等学校的学园偶像团体。', 'HOT PASSION!!\nTill Sunrise', 'Liella!的前辈与对手，二人组合。', '2021-01-01', NULL);
+(8, 4, 'Sunny Passion', 'LoveLive! Superstar!!中神津女子高等学校的学园偶像团体。', 'HOT PASSION!!\nTill Sunrise', 'Liella!的前辈与对手，二人组合。', '2021-01-01', NULL),
+(9, 7, '人生不易部！', '青鸟企划的核心学园偶像团体，由L高各分校的10名成员组成。2025年出道，2026年2月举办1st LIVE。', 'What is my LIFE?\nDou-Da? DOING!', '2025年5月12日启动。L高没有校服、教室、操场——正因什么都没有，所以自己来创造。一个关于可能性的故事。', '2025-05-12', NULL);
 
 -- 声优
 INSERT INTO cv (cv_id, name, birth_date, agency) VALUES
@@ -73,7 +75,12 @@ INSERT INTO cv (cv_id, name, birth_date, agency) VALUES
 (47, '田野麻美', '1987-02-12', NULL),
 (48, '佐藤日向', '1998-12-23', NULL),
 (49, '吉武千飒', '1999-03-27', NULL),
-(50, '结木由奈', NULL, NULL);
+(50, '结木由奈', NULL, NULL),
+-- 人生不易部 CV
+(51, '绫咲穗音', NULL, NULL),(52, '远藤璃菜', NULL, NULL),(53, '宫野芹', NULL, NULL),
+(54, '藤野心', NULL, NULL),(55, '坂野爱羽', NULL, NULL),(56, '濑古梨爱', NULL, NULL),
+(57, '奥村优季', NULL, NULL),(58, '天泽朱音', NULL, NULL),(59, '小户森穗花', NULL, NULL),
+(60, '凉之濑葵音', NULL, NULL);
 
 -- 角色
 INSERT INTO `character` (character_id, group_id, cv_id, name, birthday, blood_type, height) VALUES
@@ -124,4 +131,15 @@ INSERT INTO `character` (character_id, group_id, cv_id, name, birthday, blood_ty
 (56, 7, 47, '鹿角圣良', '05-04', 'A', 162),
 (57, 7, 48, '鹿角理亚', '12-12', 'AB', 153),
 (58, 8, 50, '柊摩央', NULL, NULL, NULL),
-(59, 8, 49, '圣泽悠奈', NULL, NULL, NULL);
+(59, 8, 49, '圣泽悠奈', NULL, NULL, NULL),
+-- 人生不易部（BLUEBIRD）
+(60, 9, 51, '高桥波尔卡', '08-18', '不明', 157),
+(65, 9, 52, '麻布麻衣', '02-13', 'B', 154),
+(67, 9, 53, '五桐玲', '07-09', 'O', 164),
+(66, 9, 54, '驹形花火', '06-11', 'A', 160),
+(61, 9, 55, '金泽奇迹', '03-02', 'AB', 152),
+(64, 9, 56, '调布乃理子', '04-04', 'B', 153),
+(62, 9, 57, '春宫悠可里', '09-22', 'B', 165),
+(63, 9, 58, '此花辉夜', '01-03', 'O', 162),
+(68, 9, 59, '山田真绿', '05-07', 'A', 155),
+(69, 9, 60, '佐佐木翔音', '11-11', '不明', NULL);

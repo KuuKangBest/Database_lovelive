@@ -42,23 +42,29 @@ async function init() {
   await conn.query(read('seed-data.sql'));
   tick('5 企划 · 8 团体 · 48 角色 · 50 声优');
 
-  // Layer 3 ── 角色描述（可选，缺失不影响运行）
-  console.log('[3/4] 角色描述与爱好 ...');
-  try {
-    await conn.query(read('character-descriptions.sql'));
-    tick('角色描述已加载');
-  } catch (e) {
-    console.log('  - 跳过 (文件可能不存在或已执行过)');
-  }
+  // Layer 3 ── 角色描述
+  console.log('[3/6] 角色描述与互动词 ...');
+  try { await conn.query(read('character-descriptions.sql')); tick('描述已加载'); } catch(e){ console.log('  - 跳过'); }
+  try { await conn.query(read('character-call-response.sql')); tick('互动词已加载'); } catch(e){ console.log('  - 跳过'); }
 
-  // Layer 4 ── 排练测试数据（可选）
-  console.log('[4/4] 排练测试数据 ...');
+  // Layer 4 ── 演唱会
+  console.log('[4/6] 演唱会数据 ...');
+  try { await conn.query(read('concerts.sql')); tick('演唱会已加载'); } catch(e){ console.log('  - 跳过'); }
+
+  // Layer 5 ── 曲目 & 演出
+  console.log('[5/6] 曲目 & 演出 ...');
+  try {
+    var songs = read('songs.sql');
+    await conn.query(songs);
+    tick('曲目+演出已加载');
+  } catch(e) { console.log('  - 跳过'); }
+
+  // Layer 6 ── 排练测试数据
+  console.log('[6/6] 排练测试数据 ...');
   try {
     await conn.query(read('test-data.sql'));
-    tick('6 舞团 · 24 舞见 · 11 排练');
-  } catch (e) {
-    console.log('  - 跳过 (可之后 npm run seed 单独加载)');
-  }
+    tick('舞团 · 舞见 · 排练已加载');
+  } catch (e) { console.log('  - 跳过'); }
 
   await conn.end();
 
