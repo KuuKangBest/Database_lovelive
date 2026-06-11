@@ -120,7 +120,7 @@ CREATE TABLE rehearsal_participation (
         ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (character_id) REFERENCES `character`(character_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
-    UNIQUE KEY uk_r_d_c (rehearsal_id, dancer_id, character_id),
+    UNIQUE KEY uk_reh_dancer (rehearsal_id, dancer_id),
     INDEX idx_rp_rehearsal (rehearsal_id),
     INDEX idx_rp_dancer (dancer_id),
     INDEX idx_rp_character (character_id)

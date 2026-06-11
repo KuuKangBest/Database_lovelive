@@ -313,11 +313,16 @@ app.post('/api/rehearsals/:id/participants/simple', async (req, res) => {
 });
 
 app.post('/api/rehearsals/:id/participants', async (req, res) => {
-  const { dancer_id, character_id } = req.body;
-  await pool.query(
-    'INSERT INTO rehearsal_participation (rehearsal_id, dancer_id, character_id) VALUES (?, ?, ?)',
-    [req.params.id, dancer_id, character_id]);
-  res.json({ success: true });
+  try {
+    const { dancer_id, character_id } = req.body;
+    await pool.query(
+      'INSERT INTO rehearsal_participation (rehearsal_id, dancer_id, character_id) VALUES (?, ?, ?)',
+      [req.params.id, dancer_id, character_id]);
+    res.json({ success: true });
+  } catch(e) {
+    if (e.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: '该舞见已在此排练中扮演其他角色' });
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.delete('/api/rehearsals/:reh_id/participants/:part_id', async (req, res) => {
