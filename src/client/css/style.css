@@ -146,6 +146,9 @@
   .count.near-full { background: #fff8e1; color: #f57c00; }
   .count.full { background: #fce4ec; color: #c62828; }
   .count.unlimited { background: #f5f5f5; color: #666; }
+  .count.cancelled { background: #f5f5f5; color: #999; text-decoration: line-through; }
+  .rehearsal-item.cancelled { opacity: 0.55; border-left-color: #ccc !important; }
+  .rehearsal-item.cancelled .info { text-decoration: line-through; color: #999; }
   .bar-wrap { width: 100px; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
   .bar-inner { height: 100%; border-radius: 4px; transition: width 0.3s; }
   .bar-inner.available { background: #66bb6a; }
@@ -274,6 +277,11 @@
   .reh-calendar .cal-day.has-reh { background:#fff0f5; font-weight:700; }
   .reh-calendar .cal-day.today { border:2px solid var(--pink); font-weight:700; }
   .reh-calendar .cal-day.other { color:#ddd; }
+  .reh-calendar .cal-day.selected { background:var(--pink); color:#fff; font-weight:700; }
+
+  /* 首页日历 — 铺满宽度 */
+  #home-calendar { max-width: 100%; }
+  #home-calendar .cal-day { min-height: 50px; font-size: 0.95em; }
   .reh-part-card.shaking {
     animation: shake 0.5s ease-in-out infinite;
     border-color: #ef5350 !important; background:#fff5f5; cursor:pointer;

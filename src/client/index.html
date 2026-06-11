@@ -52,6 +52,7 @@
       </div>
     </div>
     <div id="home-calendar" class="reh-calendar"></div>
+    <div id="home-date-rehearsals"></div>
     <h2 style="color:var(--pink);margin-bottom:15px;">最近排练</h2>
     <div id="home-rehearsals"></div>
   </div>
@@ -125,8 +126,13 @@
       <h2 style="color:var(--pink);">舞见</h2>
       <div style="display:flex;gap:6px;">
         <select id="dancer-dg-filter" onchange="loadDancerList()" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;"></select>
-        <input type="text" id="dancer-new-cn" placeholder="CN名" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;width:100px;">
-        <input type="text" id="dancer-new-qq" placeholder="QQ" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;width:100px;">
+        <input type="text" id="dancer-new-cn" placeholder="搜索/新建 CN名" title="输入CN名实时筛选" oninput="loadDancerList()" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;width:130px;">
+        <input type="text" id="dancer-new-qq" placeholder="搜索/新建 QQ" title="输入QQ号实时筛选" oninput="loadDancerList()" style="padding:6px 12px;border-radius:16px;border:2px solid #eee;width:130px;">
+        <details class="group-select-panel" id="dancer-char-panel" style="margin-bottom:14px;">
+      <summary style="color:var(--pink);font-weight:700;cursor:pointer;font-size:0.9em;">🎭 角色偏见筛选 <span id="dancer-char-label" style="font-weight:400;color:#999;font-size:0.85em;margin-left:4px;"></span></summary>
+      <div id="dancer-char-cards" style="margin-top:10px;"></div>
+    </details>
+    <input type="hidden" id="dancer-char-search">
         <button class="btn btn-primary btn-sm" onclick="addDancer()">+ 新建</button>
       </div>
     </div>
@@ -137,20 +143,26 @@
 
 <!-- 新增排练弹窗 -->
 <div class="modal-overlay" id="modal-rehearsal">
-  <div class="modal">
+  <div class="modal" style="max-width:520px;">
     <h2>新增排练</h2>
     <form id="form-rehearsal" onsubmit="addRehearsal(event)">
-      <label>舞团名称</label><input type="text" id="f-dg" required placeholder="如：StarLight 舞团">
+      <label>舞团</label>
+      <div style="display:flex;gap:8px;">
+        <select id="f-dg-sel" onchange="onDgSelect()" style="flex:1;">
+          <option value="">选择已有舞团…</option>
+        </select>
+      </div>
+      <input type="text" id="f-dg-new" placeholder="或输入新建舞团名称" style="margin-top:6px;display:none;">
       <label>排练日期</label><input type="date" id="f-date" required>
-      <label>开始时间</label><input type="time" id="f-start" required>
-      <label>结束时间</label><input type="time" id="f-end" required>
+      <div style="display:flex;gap:12px;">
+        <div style="flex:1;"><label>开始时间</label><input type="time" id="f-start" required></div>
+        <div style="flex:1;"><label>结束时间</label><input type="time" id="f-end" required></div>
+      </div>
       <label>地点</label><input type="text" id="f-loc" required placeholder="如：综合楼 201">
-      <label>人数上限（0=不限）</label><input type="number" id="f-max" value="5" min="0">
-      <label>内容简介</label><textarea id="f-desc" placeholder="如：排练 Snow halation"></textarea>
-      <label>参与角色（Ctrl+点击多选）</label>
-      <select id="f-char" multiple style="height:120px;" onchange="updateMaxHint()"></select>
-      <label>舞见 CN（逗号分隔，按角色顺序）</label>
-      <input type="text" id="f-cns" placeholder="小明,小红,阿蓝">
+      <label>人数上限 <span style="font-weight:400;color:#999;">（0 = 不限，实际人数由卡片决定）</span></label>
+      <input type="number" id="f-max" value="0" min="0">
+      <label>内容简介</label>
+      <textarea id="f-desc" rows="2" placeholder="如：Snow halation 初排"></textarea>
       <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
         <button type="button" class="btn" onclick="closeModal('modal-rehearsal')">取消</button>
         <button type="submit" class="btn btn-primary">确认添加</button>
@@ -172,6 +184,6 @@
   </div>
 </div>
 
-<script src="js/app.js"></script>
+<script src="js/app.js?v=6"></script>
 </body>
 </html>

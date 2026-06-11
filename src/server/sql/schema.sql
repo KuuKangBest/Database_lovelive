@@ -98,6 +98,7 @@ CREATE TABLE rehearsal (
     location         VARCHAR(200) NOT NULL,
     max_participants INT DEFAULT 0,
     content_summary  TEXT,
+    status           VARCHAR(20) NOT NULL DEFAULT 'active',
     stage_type       VARCHAR(20) DEFAULT '排练',
     excluded_chars   TEXT,
     extra_chars      TEXT,
@@ -166,6 +167,7 @@ SELECT
     r.location,
     r.max_participants,
     r.content_summary,
+    r.status,
     COUNT(rp.participation_id) AS current_participants,
     CASE
         WHEN r.max_participants = 0 THEN NULL

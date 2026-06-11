@@ -181,6 +181,25 @@ app.get('/api/dancers/search', async (req, res) => {
   res.json(rows);
 });
 
+// 按角色名搜索舞见（角色偏见，支持逗号分隔多选）
+app.get('/api/dancers/by-character', async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json([]);
+  const chars = q.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  if (!chars.length) return res.json([]);
+  const likes = chars.map(function(){return 'c.name LIKE ?';}).join(' OR ');
+  const params = chars.map(function(c){return '%'+c+'%';});
+  const [rows] = await pool.query(
+    `SELECT DISTINCT d.*, dg.name AS dance_group_name
+     FROM dancer d
+     LEFT JOIN dance_group dg ON d.dance_group_id = dg.dance_group_id
+     JOIN rehearsal_participation rp ON d.dancer_id = rp.dancer_id
+     JOIN \`character\` c ON rp.character_id = c.character_id
+     WHERE (`+likes+`) ORDER BY d.cn_name`,
+    params);
+  res.json(rows);
+});
+
 app.get('/api/dancers', async (req, res) => {
   const { dance_group_id } = req.query;
   let sql = 'SELECT * FROM dancer';
@@ -219,13 +238,15 @@ app.delete('/api/dancers/:id', async (req, res) => {
 // ========== 排练 API ==========
 
 app.get('/api/rehearsals', async (req, res) => {
-  const { date_from, date_to, dance_group_id, status } = req.query;
+  const { date_from, date_to, dance_group_id, status, reh_status } = req.query;
   let sql = 'SELECT * FROM rehearsal_with_count WHERE 1=1';
   const params = [];
   if (date_from) { sql += ' AND rehearsal_date >= ?'; params.push(date_from); }
   if (date_to) { sql += ' AND rehearsal_date <= ?'; params.push(date_to); }
   if (dance_group_id) { sql += ' AND dance_group_id = ?'; params.push(dance_group_id); }
   if (status && status !== 'all') { sql += ' AND occupancy_status = ?'; params.push(status); }
+  if (reh_status === 'active') { sql += ' AND status = \'active\''; }
+  else if (reh_status === 'cancelled') { sql += ' AND status = \'cancelled\''; }
   sql += ' ORDER BY rehearsal_date, start_time';
   const [rows] = await pool.query(sql, params);
   res.json(rows);
@@ -293,6 +314,13 @@ app.delete('/api/rehearsals/:id/chars/:charId', async (req, res) => {
 app.delete('/api/rehearsals/:id', async (req, res) => {
   await pool.query('DELETE FROM rehearsal WHERE rehearsal_id = ?', [req.params.id]);
   res.json({ success: true });
+});
+
+app.put('/api/rehearsals/:id/status', async (req, res) => {
+  const { status } = req.body;
+  if (!['active','cancelled'].includes(status)) return res.status(400).json({error:'无效状态'});
+  await pool.query('UPDATE rehearsal SET status=? WHERE rehearsal_id=?', [status, req.params.id]);
+  res.json({success:true});
 });
 
 // 简化版：传 character_id + (cn_name 或 qq)，优先QQ搜索，自动创建舞见
