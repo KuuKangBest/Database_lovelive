@@ -1,6 +1,6 @@
 const API = 'http://localhost:3000/api';
 let dgCache = {}, pageFilter = null;
-const groupLogo = { 1:'images/logos/muse.png', 2:'images/logos/aqours.png', 3:'images/logos/nijigasaki.png', 4:'images/logos/liella.png', 5:'images/logos/hasunosora.png', 7:'images/logos/saintsnow.png', 8:'images/logos/sunnypassion.png', 9:'images/logos/bluebird.png' };
+const groupLogo = { 1:'images/logos/muse.png', 2:'images/logos/aqours.png', 3:'images/logos/nijigasaki.png', 4:'images/logos/liella.png', 5:'images/logos/hasunosora.png', 6:'images/logos/arise.png', 7:'images/logos/saintsnow.png', 8:'images/logos/sunnypassion.png', 9:'images/logos/bluebird.png' };
 
 function fmtDate(d) { if (!d) return '至今'; return d.slice(0,10); }
 function occupantStatus(cur, max) { if (max===0) return 'unlimited'; if (cur>=max) return 'full'; if (cur/max>=0.8) return 'near_full'; return 'available'; }

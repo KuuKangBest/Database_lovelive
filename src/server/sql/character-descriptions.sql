@@ -112,11 +112,11 @@ UPDATE `character` SET hobby='未知', description='102期生（已毕业）。D
 UPDATE `character` SET hobby='未知', description='102期生（已毕业）。Mira-Cra Park! 原成员。性格活泼，为团队带来欢乐。莲之空首批毕业生之一。' WHERE character_id=52;
 
 -- ===== A-RISE（对手团） =====
-UPDATE `character` SET hobby='跳舞、唱歌', description='UTX高中的学园偶像团体A-RISE的领队兼Center。拥有天生领袖气质，处事沉着冷静，对Live充满自信。外表娇小但气场强大。带领A-RISE获得第一届LoveLive!全国大赛冠军。败给μ''s后以乐观心态鼓励她们前进，与高坂穗乃果成为好友。' WHERE character_id=53;
+UPDATE `character` SET hobby='跳舞、编舞、唱歌', cheering_color='#e91e63', description='UTX高中三年级生，A-RISE的领队兼Center。拥有天生领袖气质，处事沉着冷静，对Live充满自信。外表娇小但气场强大，标志性特征是额前短刘海。带领A-RISE获得第一届LoveLive!全国大赛冠军。败给μ''s后以乐观心态鼓励她们前进，与高坂穗乃果成为好友。剧场版中与西木野真姬共同作曲《SUNNY DAY SONG》。座右铭：不拼命的努力。' WHERE character_id=53;
 
-UPDATE `character` SET hobby='跳舞、唱歌', description='A-RISE成员。UTX高中三年级生，与绮罗翼、优木杏树组成三人团体。作为μ''s在动画第一季中的强劲对手登场，实力出众。' WHERE character_id=54;
+UPDATE `character` SET hobby='跳舞、唱歌、健身', cheering_color='#ff7043', description='UTX高中三年级生，A-RISE成员。身高163cm，身材高挑，是A-RISE中的舞蹈担当。与绮罗翼、优木杏树组成三人团体，以默契的配合和爆发力十足的舞台表现著称。' WHERE character_id=54;
 
-UPDATE `character` SET hobby='跳舞、唱歌', description='A-RISE成员。UTX高中三年级生。A-RISE三人中个性最为温和的成员，以稳定扎实的舞蹈功底支撑团体。' WHERE character_id=55;
+UPDATE `character` SET hobby='跳舞、唱歌', cheering_color='#ffca28', description='UTX高中三年级生，A-RISE成员。A-RISE三人中个性最为温和的成员，以稳定扎实的唱功和柔和的笑容支持团体。性格善良，经常充当翼和英玲奈之间的调和剂。' WHERE character_id=55;
 
 -- ===== Saint Snow（对手团） =====
 UPDATE `character` SET hobby='骑马、制作和果子、滑雪', description='函馆圣泉女子高等学院三年级生，Saint Snow成员（姐姐）。举止温和文雅，比妹妹理亚更识大体，是典型的大和抚子型角色。对舞台演出抱持极高标准。受A-RISE影响走上学园偶像之路。非常疼爱妹妹理亚，想和她一起继承家里的和式甜点店。' WHERE character_id=56;

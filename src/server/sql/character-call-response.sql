@@ -59,6 +59,11 @@ UPDATE `character` SET cheering_color='#4CD2E2', call_response=NULL WHERE charac
 UPDATE `character` SET cheering_color='#42A5F5', call_response='雪のように純粋に（Sarah!）' WHERE character_id=56;
 UPDATE `character` SET cheering_color='#FFFFFF', call_response='聖なる氷の世界へ（Leah!）' WHERE character_id=57;
 
+-- ===== A-RISE =====
+UPDATE `character` SET cheering_color='#e91e63', call_response='UTXのA-RISE、ツバサです！よろしく！（Tsubasa!）' WHERE character_id=53;
+UPDATE `character` SET cheering_color='#ff7043', call_response='A-RISE、エレナです！盛り上がっていくよ！（Erena!）' WHERE character_id=54;
+UPDATE `character` SET cheering_color='#ffca28', call_response='A-RISE、アンジュです！最後まで楽しんで！（Anju!）' WHERE character_id=55;
+
 -- ===== Sunny Passion =====
 UPDATE `character` SET cheering_color='#FFB74D', call_response='PA！（パー！）悠奈です！' WHERE character_id=59;
 UPDATE `character` SET cheering_color='#CE93D8', call_response='夜のセクシー！摩央です！' WHERE character_id=58;
