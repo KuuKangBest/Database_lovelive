@@ -620,7 +620,7 @@ loadDgMgmt=async function(){
   // 填充新建表单的翻跳团体下拉
   var ngSel=document.getElementById('dg-new-anime-group');
   if(ngSel){
-    ngSel.innerHTML='<option value="">翻跳团体（可选）</option>'+groups.map(function(g){return'<option value="'+g.group_id+'">'+g.name+'</option>';}).join('');
+    ngSel.innerHTML='<option value="">请选择翻跳团体</option>'+groups.map(function(g){return'<option value="'+g.group_id+'">'+g.name+'</option>';}).join('');
   }
   dgList.innerHTML=dgs.map(function(d){var logo=groupLogo[d.anime_group_id]||'';return'<div class="card" style="display:flex;align-items:center;gap:12px;padding:16px;cursor:pointer;position:relative;" onclick="showDgDetail('+d.dance_group_id+')">'+(logo?'<div style="width:50px;height:50px;border-radius:10px;background-image:url('+logo+');background-size:contain;background-repeat:no-repeat;background-position:center;opacity:0.3;"></div>':'')+'<div style="flex:1;"><strong>'+d.name+'</strong>'+(d.anime_group_name?'<br><small style="color:#999;">翻跳：'+d.anime_group_name+'</small>':'')+'</div><button class="btn btn-danger btn-sm" style="position:absolute;top:10px;right:10px;padding:2px 10px;font-size:0.7em;z-index:2;" onclick="event.stopPropagation();deleteDanceGroup('+d.dance_group_id+',\''+(d.name||'').replace(/'/g,'\\\'')+'\')">解散</button></div>';}).join('');
   var sel=document.getElementById('dancer-dg-filter');if(sel)sel.innerHTML='<option value="">全部舞团</option>'+dgs.map(function(d){return'<option value="'+d.dance_group_id+'">'+d.name+'</option>';}).join('');
@@ -835,7 +835,7 @@ loadDancerList=async function(){
   }catch(e){var le=document.getElementById('dancer-mgmt-list');if(le)le.innerHTML='<p style=\"color:#e53935;text-align:center;padding:40px;\">加载出错: '+e.message+'</p>';}
 };
 
-addDanceGroup=async function(){var n=document.getElementById('dg-new-name').value.trim();if(!n){alert('请输入舞团名称');return;}var agSel=document.getElementById('dg-new-anime-group');var agId=agSel&&agSel.value?parseInt(agSel.value):null;await fetch(API+'/dance-groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,anime_group_id:agId})});document.getElementById('dg-new-name').value='';if(agSel)agSel.value='';dgCache={};loadDgMgmt();try{var sel=document.getElementById('dancer-dg-filter');if(sel){sel.innerHTML='';loadDancerList();}}catch(e){}};
+addDanceGroup=async function(){var n=document.getElementById('dg-new-name').value.trim();if(!n){alert('请输入舞团名称');return;}var agSel=document.getElementById('dg-new-anime-group');if(!agSel||!agSel.value){alert('请选择翻跳团体');return;}var agId=parseInt(agSel.value);await fetch(API+'/dance-groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,anime_group_id:agId})});document.getElementById('dg-new-name').value='';agSel.value='';dgCache={};loadDgMgmt();try{var sel=document.getElementById('dancer-dg-filter');if(sel){sel.innerHTML='';loadDancerList();}}catch(e){}};
 deleteDanceGroup=async function(id,name){if(!confirm('确定解散舞团「'+name+'」？\n\n⚠ 这将同时删除：\n  • 该舞团所有舞见\n  • 该舞团所有排练及参与记录\n  • 该舞团所有曲目和演出\n\n此操作不可恢复！'))return;var res=await fetch(API+'/dance-groups/'+id,{method:'DELETE'});if(!res.ok){var e=await res.json();alert('解散失败：'+(e.error||'未知错误'));return;}loadDgMgmt();try{loadDancerList();}catch(e){}try{loadPerfView();}catch(e){}try{loadHome();}catch(e){}};
 openAddDancer=async function(){
   document.getElementById('dancer-modal-title').textContent='新建舞见';

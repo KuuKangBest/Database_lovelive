@@ -210,9 +210,10 @@ app.get('/api/dance-groups/:id', async (req, res) => {
 
 app.post('/api/dance-groups', async (req, res) => {
   const { name, anime_group_id, description } = req.body;
+  if (!anime_group_id) return res.status(400).json({ error: '翻跳团体为必选项' });
   const [result] = await pool.query(
     'INSERT INTO dance_group (name, anime_group_id, description, created_date) VALUES (?, ?, ?, CURDATE())',
-    [name, anime_group_id || null, description || null]);
+    [name, anime_group_id, description || null]);
   res.json({ dance_group_id: result.insertId });
 });
 
